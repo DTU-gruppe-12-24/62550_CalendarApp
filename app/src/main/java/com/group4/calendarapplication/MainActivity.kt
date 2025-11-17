@@ -70,6 +70,13 @@ class MainActivity : ComponentActivity() {
         }(ArrayList(groups.value))
     }
 
+    fun updateGroup(index: Int, group: Group) {
+        groups.value = { v: ArrayList<Group> ->
+            v[index] = group
+            v
+        }(ArrayList(groups.value))
+    }
+
     fun removeGroup(group: Group) {
         groups.value = { v: ArrayList<Group> ->
             v.remove(group)

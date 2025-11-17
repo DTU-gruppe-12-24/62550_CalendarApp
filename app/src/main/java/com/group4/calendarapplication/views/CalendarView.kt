@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,24 +33,55 @@ import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import com.group4.calendarapplication.models.Group
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
 @Composable
-fun CalendarView(modifier: Modifier) {
-    CalendarComponent({}, modifier = modifier.fillMaxHeight())
+fun CalendarView(groups: List<Group>, modifier: Modifier) {
+    var activeGroup by rememberSaveable { mutableIntStateOf(-1) }
+    if(activeGroup >= groups.size) activeGroup = -1
+
+    Column(modifier = modifier) {
+        Box(modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)) {
+            val expanded = remember { mutableStateOf(false) }
+            DropdownMenu(expanded = expanded.value, onDismissRequest = { expanded.value = false}, modifier = Modifier.fillMaxWidth().align(Alignment.Center).clickable(onClick = { expanded.value = true })) {
+                for(i in 0..<groups.size) {
+
+                }
+            }
+        }
+        CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), {}, modifier = modifier.fillMaxSize().align(Alignment.CenterHorizontally))
+    }
+
 }
 
 @Composable
 fun CalendarComponent(
+    group: Group?,
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var current by rememberSaveable { mutableStateOf(LocalDate.now()) }
+    val datesInCurrentMonth = getDatesInMonth(current)
+    val occupiedDates = datesInCurrentMonth.map {
+        date -> {
+            val colors = ArrayList<Color>()
+            if(group != null)
+                for (calendar in group.calendars) {
+                    if(calendar.dates.contains(date))
+                        colors.add(calendar.color)
+                }
+            Pair(date, colors)
+        }()
+    }
 
     Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -81,7 +113,7 @@ fun CalendarComponent(
         }
         Spacer(modifier = Modifier.size(16.dp))
         CalendarGrid(
-            date = getDatesInMonth(current).map { date -> Pair(date, date.dayOfMonth % 3 == 0) }.toList(),
+            date = occupiedDates.toList(),
             onClick = onDateClick,
             modifier = Modifier
                 .wrapContentHeight()
@@ -106,7 +138,7 @@ fun CalendarComponent(
 @Composable
 private fun CalendarCell(
     date: LocalDate,
-    signal: Boolean,
+    colors: List<Color>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -118,7 +150,7 @@ private fun CalendarCell(
             .padding(2.dp)
             .background(
                 shape = RoundedCornerShape(CornerSize(8.dp)),
-                color = if (signal) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                color = MaterialTheme.colorScheme.secondaryContainer,
             )
             .clip(RoundedCornerShape(CornerSize(8.dp)))
             .clickable(onClick = onClick)
@@ -128,6 +160,9 @@ private fun CalendarCell(
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.align(Alignment.Center)
         )
+        for (color in colors) {
+            Box (modifier = Modifier.size(5.dp, 2.dp).background(color))
+        }
     }
 }
 
@@ -150,7 +185,7 @@ private fun WeekdayCell(weekday: Int, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CalendarGrid(
-    date: List<Pair<LocalDate, Boolean>>,
+    date: List<Pair<LocalDate, List<Color>>>,
     onClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -171,7 +206,7 @@ private fun CalendarGrid(
             }
             // Add all calendar cells
             date.forEach {
-                CalendarCell(date = it.first, signal = it.second, onClick = { onClick(it.first) })
+                CalendarCell(date = it.first, colors = it.second, onClick = { onClick(it.first) })
             }
         },
         modifier = modifier,

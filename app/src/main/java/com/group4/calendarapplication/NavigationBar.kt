@@ -14,6 +14,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
+import com.group4.calendarapplication.models.Group
 import com.group4.calendarapplication.views.CalendarView
 import com.group4.calendarapplication.views.HomeView
 import com.group4.calendarapplication.views.NotificationsView
@@ -41,6 +44,7 @@ enum class Destination(
 
 @Composable
 fun NavHost(
+    groups: List<Group>,
     navController: NavHostController,
     startDestination: Destination,
     modifier: Modifier = Modifier
@@ -52,8 +56,8 @@ fun NavHost(
         Destination.entries.forEach { destination ->
             composable(destination.route) {
                 when (destination) {
-                    Destination.HOME -> HomeView(modifier)
-                    Destination.CALENDAR -> CalendarView(modifier)
+                    Destination.HOME -> HomeView(groups, modifier)
+                    Destination.CALENDAR -> CalendarView(groups, modifier)
                     Destination.NOTIFICATIONS -> NotificationsView(modifier)
                 }
             }
@@ -62,9 +66,9 @@ fun NavHost(
 }
 
 @Composable
-fun App() {
+fun App(groups: List<Group>) {
     val navController = rememberNavController()
-    val startDestination = Destination.CALENDAR
+    val startDestination = Destination.HOME
     var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
 
     Scaffold(
@@ -90,6 +94,6 @@ fun App() {
             }
         }
     ) { innerPadding ->
-        NavHost(navController, startDestination, modifier = Modifier.padding(innerPadding))
+        NavHost(groups, navController, startDestination, modifier = Modifier.padding(innerPadding))
     }
 }

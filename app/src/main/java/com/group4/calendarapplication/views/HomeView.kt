@@ -119,6 +119,7 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit) {
+    val mainActivity = LocalActivity.current as MainActivity
     Column(modifier = modifier.fillMaxWidth()) {
         IconButton(onClick = onExit, Modifier.align(Alignment.End)) {
             Icon(
@@ -177,7 +178,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
 
             Button(
                 onClick = {
-                    onEdit(group)
+                    mainActivity.removeGroup(group)
                     onExit()
                 },
                 colors = ButtonColors(
@@ -250,7 +251,9 @@ fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar)
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Button(onClick = {
-                addCalender(Calendar(name.value, color = Color(2), ArrayList()))
+                val calendar = Calendar(name.value, color = Color(2), ArrayList())
+                calendar.randomize(40) // Temp: Randomize calendar dates
+                addCalender(calendar)
                 onDismissRequest()
             }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text("Create calendar")

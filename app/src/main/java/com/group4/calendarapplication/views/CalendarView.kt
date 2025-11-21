@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardColors
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -45,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
+import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -72,7 +77,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                 Text("Occupied by:")
                 groups[activeGroup].calendars.forEach { calendar ->
                     if(calendar.dates.contains(dialogDate.value)) {
-                        Text(calendar.name)
+                        CalendarLegend(calendar, Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -125,9 +130,37 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
         CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
             isDialogOpen.value = true
             dialogDate.value = date
-        }, modifier = modifier.fillMaxSize().align(Alignment.CenterHorizontally))
-    }
+        }, modifier = modifier.fillMaxWidth().align(Alignment.CenterHorizontally))
 
+        // Legend
+        Column (modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Bottom) {
+            groups[activeGroup].calendars.forEach { calendar ->
+                CalendarLegend(calendar, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
+    Row (modifier = modifier, horizontalArrangement = Arrangement.Start) {
+        Card(
+            shape = CircleShape,
+            modifier = Modifier.size(25.dp, 25.dp),
+            colors = CardColors(
+                calendar.color,
+                ButtonDefaults.buttonColors().contentColor,
+                ButtonDefaults.buttonColors().disabledContainerColor,
+                ButtonDefaults.buttonColors().disabledContentColor,
+            )
+        ) {
+        }
+        Text(
+            text = calendar.name,
+            modifier = Modifier.padding(5.dp, 0.dp),
+            textAlign = TextAlign.Start
+        )
+    }
 }
 
 @Composable
@@ -229,9 +262,18 @@ private fun CalendarCell(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        for (color in colors) {
-            Box (modifier = Modifier.size(5.dp, 2.dp).background(color)) {
-                Text("a")
+        Row(modifier = Modifier.fillMaxWidth().offset(0.dp, 15.dp).align(Alignment.Center), horizontalArrangement = Arrangement.SpaceAround) {
+            for (color in colors) {
+                Card(
+                    shape = CircleShape,
+                    modifier = Modifier.size(10.dp, 10.dp).align(Alignment.CenterVertically),
+                    colors = CardColors(
+                        color,
+                        ButtonDefaults.buttonColors().contentColor,
+                        ButtonDefaults.buttonColors().disabledContainerColor,
+                        ButtonDefaults.buttonColors().disabledContentColor,
+                    )
+                ) {}
             }
         }
     }

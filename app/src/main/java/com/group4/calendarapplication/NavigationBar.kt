@@ -39,7 +39,6 @@ enum class Destination(
 ) {
     HOME("home", "Home", Icons.Default.Home, "Home"),
     CALENDAR("calendar", "Calendar", Icons.Default.DateRange, "Calendar"),
-    NOTIFICATIONS("notifications", "Notifications", Icons.Default.Notifications, "Notifications")
 }
 
 @Composable
@@ -58,7 +57,6 @@ fun NavHost(
                 when (destination) {
                     Destination.HOME -> HomeView(groups, modifier)
                     Destination.CALENDAR -> CalendarView(groups, modifier)
-                    Destination.NOTIFICATIONS -> NotificationsView(modifier)
                 }
             }
         }

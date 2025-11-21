@@ -40,6 +40,7 @@ import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.MainActivity
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
+import kotlin.random.Random
 
 @Composable
 fun HomeView(groups: List<Group>, modifier: Modifier) {
@@ -205,10 +206,7 @@ fun EditGroupCalendarList(group: Group, onEdit: (group: Group) -> Unit) {
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                         .background(color = MaterialTheme.colorScheme.tertiaryContainer)
                 ) {
-                    Text(
-                        text = group.calendars[i].name,
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    )
+                    CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
 
                     Button(
                         onClick = {
@@ -251,8 +249,9 @@ fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar)
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
             Button(onClick = {
-                val calendar = Calendar(name.value, color = Color(2), ArrayList())
-                calendar.randomize(40) // Temp: Randomize calendar dates
+                // Temp: Randomize calendar dates and color
+                val calendar = Calendar(name.value, color = Color(Random.nextInt(255),Random.nextInt(255),Random.nextInt(255),255), ArrayList())
+                calendar.randomize(50)
                 addCalender(calendar)
                 onDismissRequest()
             }, modifier = Modifier.align(Alignment.CenterHorizontally)) {

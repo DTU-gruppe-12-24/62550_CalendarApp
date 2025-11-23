@@ -14,10 +14,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.compose.composable
@@ -64,32 +63,39 @@ fun NavHost(
 }
 
 @Composable
+fun NavBar(navController: NavHostController) {
+    var selectedDestination by rememberSaveable { mutableStateOf("") }
+    navController.addOnDestinationChangedListener { controller, destination, arguments ->
+        selectedDestination = destination.route ?: ""
+    }
+    NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
+        Destination.entries.forEachIndexed { index, destination ->
+            NavigationBarItem(
+                selected = destination.route == selectedDestination,
+                onClick = {
+                    navController.navigate(destination.route)
+                },
+                icon = {
+                    Icon(
+                        destination.icon,
+                        contentDescription = destination.contentDescription
+                    )
+                },
+                label = { Text(destination.label) }
+            )
+        }
+    }
+}
+
+@Composable
 fun App(groups: List<Group>) {
     val navController = rememberNavController()
     val startDestination = Destination.HOME
-    var selectedDestination by rememberSaveable { mutableIntStateOf(startDestination.ordinal) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
         bottomBar = {
-            NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                Destination.entries.forEachIndexed { index, destination ->
-                    NavigationBarItem(
-                        selected = selectedDestination == index,
-                        onClick = {
-                            navController.navigate(destination.route)
-                            selectedDestination = index
-                        },
-                        icon = {
-                            Icon(
-                                destination.icon,
-                                contentDescription = destination.contentDescription
-                            )
-                        },
-                        label = { Text(destination.label) }
-                    )
-                }
-            }
+            NavBar(navController)
         }
     ) { innerPadding ->
         NavHost(groups, navController, startDestination, modifier = Modifier.padding(innerPadding))

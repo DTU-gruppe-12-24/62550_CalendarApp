@@ -2,12 +2,16 @@ package com.group4.calendarapplication.views
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,6 +46,7 @@ import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -85,8 +90,9 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
     }
 
     // Calendar component
-    Column(modifier = modifier) {
-        if(groups.isNotEmpty())
+    Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
+        // Group selector
+        if(groups.isNotEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
@@ -96,7 +102,8 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
                 Row(
                     horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().clickable(onClick = { expanded.value = true})
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                        .clickable(onClick = { expanded.value = true })
                 ) {
                     Text(
                         text = groups[activeGroup].name,
@@ -110,13 +117,13 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
                 DropdownMenu(
                     expanded = expanded.value,
-                    onDismissRequest = { expanded.value = false},
+                    onDismissRequest = { expanded.value = false },
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.Center)
                         .background(color = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
-                    for(i in 0..<groups.size) {
+                    for (i in 0..<groups.size) {
                         DropdownMenuItem(
                             text = { Text(text = groups[i].name) },
                             onClick = {
@@ -127,15 +134,25 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                     }
                 }
             }
-        CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
-            isDialogOpen.value = true
-            dialogDate.value = date
-        }, modifier = modifier.fillMaxWidth().align(Alignment.CenterHorizontally))
+        }
 
-        // Legend
-        Column (modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.Bottom) {
-            groups[activeGroup].calendars.forEach { calendar ->
-                CalendarLegend(calendar, Modifier.fillMaxWidth())
+        Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            // Calendar
+            CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
+                isDialogOpen.value = true
+                dialogDate.value = date
+            }, modifier = Modifier.fillMaxWidth())
+
+            // Legend
+            if (activeGroup != -1) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.Bottom
+                ) {
+                    groups[activeGroup].calendars.forEach { calendar ->
+                        CalendarLegend(calendar, Modifier.fillMaxWidth())
+                    }
+                }
             }
         }
     }
@@ -183,7 +200,22 @@ fun CalendarComponent(
         }()
     }
 
-    Column(modifier = modifier) {
+    val combinedSwipeDelta = remember { mutableFloatStateOf(0.0f) }
+    Column(verticalArrangement = Arrangement.Top, modifier = modifier.draggable(
+        orientation = Orientation.Horizontal,
+        state = rememberDraggableState { delta ->
+            combinedSwipeDelta.floatValue += delta
+            if(combinedSwipeDelta.floatValue > 250.0f) {
+                current = current.minusMonths(1) // Go to previous month
+                combinedSwipeDelta.floatValue = -100.0f
+            }
+            else if(combinedSwipeDelta.floatValue < -250.0f) {
+                current = current.plusMonths(1) // Go to next month
+                combinedSwipeDelta.floatValue = 100.0f
+            }
+        },
+
+    )) {
         Box(modifier = Modifier.fillMaxWidth()) {
             IconButton(
                 onClick = { current = current.minusMonths(1) },
@@ -222,14 +254,13 @@ fun CalendarComponent(
                 )
             }
         }
-        Spacer(modifier = Modifier.size(16.dp))
         CalendarGrid(
             date = occupiedDates.toList(),
             calendarCount = group?.calendars?.size ?: 0,
             onClick = onDateClick,
             modifier = Modifier
                 .wrapContentHeight()
-                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp)
                 .align(Alignment.CenterHorizontally)
         )
     }
@@ -311,8 +342,28 @@ private fun CalendarGrid(
 
     Layout(
         content = {
+            Box(modifier = modifier.aspectRatio(1f).fillMaxSize()) {
+                Text(
+                    text = "#",
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
             weekdays.forEach {
                 WeekdayCell(weekday = it)
+            }
+            // Display first week number (if month doesn't start on a monday)
+            if(weekdayFirstDay > 0) {
+                Box(modifier = modifier.aspectRatio(1f).fillMaxSize()) {
+                    val day = date.first().first.minusDays(date.first().first.dayOfWeek.ordinal.toLong())
+                    var num = (day.dayOfYear / 7) + (if(((day.dayOfYear - 1) % 7) > 0) 1 else 0) + (if(day.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)
+                    if(date.first().first.dayOfYear <= 7) num = (if(date.first().first.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)
+                    Text(
+                        text = num.toString(),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.align(Alignment.Center).fillMaxSize()
+                    )
+                }
             }
             // Align the first day of the month to the correct weekday
             repeat(weekdayFirstDay) {
@@ -320,19 +371,30 @@ private fun CalendarGrid(
             }
             // Add all calendar cells
             date.forEach {
-                var status = Color(0xff89f93e)
+                // Display week numbers
+                if(it.first.dayOfWeek == DayOfWeek.MONDAY) {
+                    Box(modifier = modifier.aspectRatio(1f).fillMaxSize()) {
+                        Text(
+                            text = ((it.first.dayOfYear / 7 ) + (if(((it.first.dayOfYear - 1) % 7) > 0) 1 else 0) + (if(it.first.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)).toString(),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.align(Alignment.Center).fillMaxSize()
+                        )
+                    }
+                }
+
+                var status = Color(0xff327025)
                 if(it.second.isNotEmpty()) {
-                    if(it.second.size >= calendarCount * 0.9f) status = Color(0xfff93e3e)
-                    else if(it.second.size >= calendarCount * 0.5f) status = Color(0xfff99f3e)
-                    else status = Color(0xfff9da3e)
+                    if(it.second.size >= calendarCount * 0.9f) status = Color(0xff9e2222)
+                    else if(it.second.size >= calendarCount * 0.5f) status = Color(0xffd37808)
+                    else status = Color(0xffc1ae00)
                 }
                 CalendarCell(date = it.first, status = status, colors = it.second, onClick = { onClick(it.first) })
             }
         },
         modifier = modifier,
     ) { measurables, constraints ->
-        val totalWidthWithoutGap = constraints.maxWidth - (horizontalGap * 6)
-        val singleWidth = totalWidthWithoutGap / 7
+        val totalWidthWithoutGap = constraints.maxWidth - (horizontalGap * 7)
+        val singleWidth = totalWidthWithoutGap / 8
 
         val xPos: MutableList<Int> = mutableListOf()
         val yPos: MutableList<Int> = mutableListOf()
@@ -350,7 +412,7 @@ private fun CalendarGrid(
         }
 
         val placeables: List<Placeable> = measurables.map { measurable ->
-            measurable.measure(constraints.copy(maxHeight = singleWidth, maxWidth = singleWidth))
+            measurable.measure(constraints.copy(minHeight = 0, maxHeight = singleWidth, minWidth = 0, maxWidth = singleWidth))
         }
 
         layout(

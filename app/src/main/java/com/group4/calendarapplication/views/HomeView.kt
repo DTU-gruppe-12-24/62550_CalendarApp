@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -232,8 +233,12 @@ fun EditGroupCalendarList(group: Group, onEdit: (group: Group) -> Unit) {
 
 @Composable
 fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar) -> Unit) {
+    CalendarImport { calendar ->
+        if (calendar != null) addCalender(calendar)
+        onDismissRequest()
+    }
+    /*
     val name = remember { mutableStateOf("") }
-
     Dialog(onDismissRequest = { onDismissRequest() }) {
         Card(
             modifier = Modifier
@@ -259,4 +264,5 @@ fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar)
             }
         }
     }
+     */
 }

@@ -82,17 +82,23 @@ public fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
 
                 if (input != null) {
                     // Import calendars from zip
-                    val calendars = importZippedIcal(input)
-                    if (calendars.isNotEmpty()) {
-                        // Combine all calendars from zip into one
-                        val calendar = Calendar(calendars[0].name, calendars[0].color,
-                            calendars.reduce { combined, cal ->
-                                combined.dates.addAll(cal.dates)
-                                combined
-                            }.dates
-                        )
-                        // Update upstream calendar
-                        onResult(calendar)
+                    try {
+                        val calendars = importZippedIcal(input)
+                        if (calendars.isNotEmpty()) {
+                            // Combine all calendars from zip into one
+                            val calendar = Calendar(
+                                calendars[0].name, calendars[0].color,
+                                calendars.reduce { combined, cal ->
+                                    combined.dates.addAll(cal.dates)
+                                    combined
+                                }.dates
+                            )
+                            // Update upstream calendar
+                            onResult(calendar)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CalendarImport", "Failed to import calendar(s) with error: $e")
+                        throw e
                     }
                 }
             }

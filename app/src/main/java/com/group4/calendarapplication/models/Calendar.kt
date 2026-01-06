@@ -20,7 +20,9 @@ class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializ
     }
 
     fun isDateTimeWithInEvent(date: LocalDate) : Boolean {
-        return (start.toLocalDate().isBefore(date) || start.toLocalDate() == date) && (end.toLocalDate().isAfter(date) || end.toLocalDate() == date)
+        val endDate = end.minusMinutes(1).toLocalDate()
+        val startDate = start.plusMinutes(1).toLocalDate()
+        return (startDate.isBefore(date) || startDate == date) && (endDate.isAfter(date) || endDate == date)
     }
 }
 

@@ -9,9 +9,10 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.group4.calendarapplication.models.Calendar
+import com.group4.calendarapplication.models.importIcal
 import com.group4.calendarapplication.models.importZippedIcal
 
 class GetCustomContents(
@@ -68,19 +69,30 @@ fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
     val filePicker = rememberLauncherForActivityResult(
         contract = GetCustomContents(isMultiple = true),
         onResult = { uris ->
+            val cr: ContentResolver = context.contentResolver
+
             // Import each file
             uris.forEach { uri ->
                 Log.d("MainActivity", "uri: $uri")
 
                 // Read file from content uri
-                val cr: ContentResolver = context.contentResolver
-                val input = cr.openInputStream(uri)
 
-                if (input != null) {
-                    // Import calendars from zip
-                    try {
-                        val calendars = importZippedIcal(input)
-                        if (calendars.isNotEmpty()) {
+                val input = cr.openInputStream(uri) ?: return@forEach
+                val fileType: String = cr.getType(uri) ?: return@forEach
+
+                when (fileType) {
+                    // If file is '.ics':
+                    "text/calendar" -> {
+                        val calendar = importIcal(input)
+                        onResult(calendar)
+                    }
+                    // If file is '.zip':
+                    "application/zip" -> {
+                        // Import calendars from zip
+                        try {
+                            val calendars = importZippedIcal(input)
+                            if (calendars.isEmpty()) return@forEach
+
                             // Combine all calendars from zip into one
                             val calendar = Calendar(
                                 calendars[0].name, calendars[0].color,
@@ -91,10 +103,10 @@ fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
                             )
                             // Update upstream calendar
                             onResult(calendar)
+                        } catch (e: Exception) {
+                            Log.e("CalendarImport", "Failed to import calendar(s) with error: $e")
+                            throw e
                         }
-                    } catch (e: Exception) {
-                        Log.e("CalendarImport", "Failed to import calendar(s) with error: $e")
-                        throw e
                     }
                 }
             }
@@ -102,7 +114,7 @@ fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
             onResult(null)
         })
 
-    SideEffect {
+    LaunchedEffect(Unit) {
         filePicker.launch("*/*")
     }
 }

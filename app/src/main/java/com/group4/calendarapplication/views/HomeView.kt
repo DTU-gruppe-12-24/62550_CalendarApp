@@ -29,13 +29,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -283,11 +283,27 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
 }
 
 @Composable
-fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar) -> Unit) {
-    CalendarImport { calendar ->
-        if (calendar != null) addCalender(calendar)
-        onDismissRequest()
+fun AddCalendarDialog(
+    onDismissRequest: () -> Unit,
+    addCalender: (cal: Calendar) -> Unit
+) {
+    Column {
+        FileCalendarImport { calendar ->
+            if (calendar != null) addCalender(calendar)
+            onDismissRequest()
+        }
+
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+
+        UrlCalendarImport { calendar ->
+            if (calendar != null) addCalender(calendar)
+            onDismissRequest()
+        }
     }
+}
+
     /*
     val name = remember { mutableStateOf("") }
     Dialog(onDismissRequest = { onDismissRequest() }) {
@@ -316,7 +332,7 @@ fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar)
         }
     }
      */
-}
+
 
 @Composable
 fun ItemList(items: List<@Composable () -> Unit>, modifier: Modifier) {

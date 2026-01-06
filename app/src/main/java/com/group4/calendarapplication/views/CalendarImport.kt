@@ -8,12 +8,32 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.importIcal
 import com.group4.calendarapplication.models.importZippedIcal
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class GetCustomContents(
     private val isMultiple: Boolean = false, //This input check if the select file option is multiple or not
@@ -63,7 +83,7 @@ class GetCustomContents(
 }
 
 @Composable
-fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
+fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
     val context = LocalContext.current
 
     val filePicker = rememberLauncherForActivityResult(
@@ -76,7 +96,6 @@ fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
                 Log.d("MainActivity", "uri: $uri")
 
                 // Read file from content uri
-
                 val input = cr.openInputStream(uri) ?: return@forEach
                 val fileType: String = cr.getType(uri) ?: return@forEach
 
@@ -114,7 +133,71 @@ fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
             onResult(null)
         })
 
-    LaunchedEffect(Unit) {
-        filePicker.launch("*/*")
+    Button(onClick = { filePicker.launch("*/*") }) {
+        Text("Add calendar from file")
     }
+}
+
+@Composable
+fun UrlCalendarImport(onResult: (Calendar?) -> Unit) {
+    var url by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TextField(
+            value = url,
+            onValueChange = { url = it },
+            placeholder = { Text("Paste calendar URL") },
+            singleLine = true,
+            modifier = Modifier.weight(1f)
+        )
+
+        Spacer(Modifier.width(8.dp))
+
+        Button(
+            enabled = url.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    try {
+                        val normalized = normalizeWebcalUrl(url)
+                        val input = withContext(Dispatchers.IO) {
+                            downloadIcs(normalized)
+                        }
+
+
+                        val calendar = importIcal(input)
+
+                        onResult(calendar)
+                    } catch (e: Exception) {
+                        Log.e("UrlCalendarImport", "Failed to import", e)
+                        onResult(null)
+                    }
+                }
+            }
+        ) {
+            Text("Import")
+        }
+    }
+}
+
+fun normalizeWebcalUrl(url: String): String =
+    if (url.startsWith("webcal://")) {
+        "https://" + url.removePrefix("webcal://")
+    } else {
+        url
+    }
+
+
+fun downloadIcs(url: String): InputStream {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    connection.connectTimeout = 15_000
+    connection.readTimeout = 15_000
+    connection.requestMethod = "GET"
+    connection.connect()
+
+    if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+        throw IOException("HTTP ${connection.responseCode}")
+    }
+
+    return connection.inputStream
 }

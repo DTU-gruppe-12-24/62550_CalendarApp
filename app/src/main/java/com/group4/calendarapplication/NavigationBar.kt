@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
@@ -36,7 +37,7 @@ enum class Destination(
     val icon: ImageVector,
     val contentDescription: String
 ) {
-    HOME("home", "Home", Icons.Default.Home, "Home"),
+    HOME("home", "Groups", Icons.Default.Create, "Home"),
     CALENDAR("calendar", "Calendar", Icons.Default.DateRange, "Calendar"),
 }
 

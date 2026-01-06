@@ -8,13 +8,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
@@ -36,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.MainActivity
@@ -73,20 +84,29 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
     }
 
     Column(modifier = modifier) {
-        Text(text = "Manage calendar groups", modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(modifier = Modifier.size(16.dp))
-        Box(modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)) {
-            Button(onClick = { openCreateGroupDialog.value = true }, modifier = Modifier.align(Alignment.Center)) {
-                Text("Add new group")
-            }
-        }
-        Spacer(modifier = Modifier.size(16.dp))
+        Text(text = "Calendar groups", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
+        Spacer(modifier = Modifier.size(32.dp))
+
+        val items = ArrayList<@Composable () -> Unit>()
         for (i in 0..<groups.size) {
-            Box(modifier = Modifier.fillMaxWidth().height(48.dp).clickable(onClick = { onSelectGroup(i) }).background(color = MaterialTheme.colorScheme.tertiaryContainer)) {
-                Text(text = groups[i].name, modifier = Modifier.align(Alignment.Center))
-            }
-            Spacer(modifier = Modifier.size(8.dp))
+            items.add({
+                Box(modifier = Modifier.fillMaxSize().clickable(onClick = { onSelectGroup(i) })) {
+                    Text(text = groups[i].name, modifier = Modifier.align(Alignment.Center))
+                    EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
+                }
+            })
         }
+        items.add({
+            Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(CornerSize(8.dp))).clickable(
+                    onClick = { openCreateGroupDialog.value = true }
+                ),
+            ) {
+                Text("Add new group", Modifier.align(Alignment.Center))
+            }
+        })
+        ItemList(items, Modifier.fillMaxSize())
     }
 }
 
@@ -99,23 +119,28 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
         )  {
+            Spacer(modifier = Modifier.size(16.dp))
+            Text(text = "Add new group", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
+            Spacer(modifier = Modifier.size(16.dp))
             TextField(
                 value = name.value,
                 onValueChange = { v -> name.value = v },
                 placeholder = { Text("Name of group") },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.8f)
             )
+            Spacer(modifier = Modifier.size(16.dp))
             Button(onClick = {
                 mainActivity.addGroup(Group(name.value, ArrayList()))
                 onDismissRequest()
-            }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text("Create group")
+            }, modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.7f)) {
+                Text("Create")
             }
+            Spacer(modifier = Modifier.size(16.dp))
         }
+        CloseIcon(modifier = Modifier, onClick = onDismissRequest)
     }
 }
 
@@ -265,4 +290,76 @@ fun AddCalendarDialog(onDismissRequest: () -> Unit, addCalender: (cal: Calendar)
         }
     }
      */
+}
+
+@Composable
+fun ItemList(items: List<@Composable () -> Unit>, modifier: Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.CenterHorizontally) {
+        for (item in items) {
+            Box(
+                Modifier
+                    .requiredWidth(256.dp)
+                    .requiredHeight(48.dp)
+                    .padding(2.dp)
+                    .background(
+                        shape = RoundedCornerShape(CornerSize(8.dp)),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
+                Alignment.Center
+            ) {
+                item()
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+fun EditIcon(modifier: Modifier) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .padding(2.dp)
+            .background(
+                shape = RoundedCornerShape(CornerSize(8.dp)),
+                color = Color.Transparent, //MaterialTheme.colorScheme.primaryContainer,
+            ),
+        Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.Edit,
+            "Edit",
+            Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+fun DeleteIcon(modifier: Modifier) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .padding(2.dp)
+            .background(
+                shape = RoundedCornerShape(CornerSize(2.dp)),
+                color = MaterialTheme.colorScheme.errorContainer,
+            ),
+        Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.Delete,
+            "Delete",
+            Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+fun CloseIcon(modifier: Modifier, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier) {
+        Icon(
+            Icons.Default.Close,
+            "Cancel",
+        )
+    }
 }

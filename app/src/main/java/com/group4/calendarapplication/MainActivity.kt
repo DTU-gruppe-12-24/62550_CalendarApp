@@ -77,9 +77,9 @@ class MainActivity : ComponentActivity() {
         saveStateToFile()
     }
 
-    fun removeGroup(group: Group) {
+    fun removeGroup(index: Int) {
         groups.value = { v: ArrayList<Group> ->
-            v.remove(group)
+            v.removeAt(index)
             v
         }(ArrayList(groups.value))
         saveStateToFile()

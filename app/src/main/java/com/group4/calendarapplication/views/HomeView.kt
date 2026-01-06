@@ -72,7 +72,12 @@ fun HomeView(groups: List<Group>, modifier: Modifier) {
                 mainActivity.updateGroup(currentGroup, g)
                 currentGroup--
                 currentGroup++
-            })
+            },
+            deleteGroup = {
+                mainActivity.removeGroup(currentGroup)
+                currentGroup = -1
+            }
+        )
     }
 }
 
@@ -146,7 +151,7 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 }
 
 @Composable
-fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit) {
+fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit, deleteGroup: () -> Unit) {
     val editMade = remember { mutableStateOf(false) }
     val editName = remember { mutableStateOf(false) }
     val mainActivity = LocalActivity.current as MainActivity
@@ -252,7 +257,12 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             }
 
             val confirmGroupDelete = remember { mutableStateOf(false) }
-            if (confirmGroupDelete.value) ConfirmDialog(text = "Do you want to delete group \"${group.name}\"? (This cannot be undone)", onSuccess = { mainActivity.removeGroup(group); onExit(); confirmGroupDelete.value = false } , onFail = { confirmGroupDelete.value = false })
+            if (confirmGroupDelete.value)
+                ConfirmDialog(
+                    text = "Do you want to delete group \"${group.name}\"? (This cannot be undone)",
+                    onSuccess = { confirmGroupDelete.value = false; deleteGroup() },
+                    onFail = { confirmGroupDelete.value = false }
+                )
             Button(
                 onClick = {
                     confirmGroupDelete.value = true

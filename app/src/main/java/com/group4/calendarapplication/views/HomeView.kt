@@ -1,8 +1,11 @@
 package com.group4.calendarapplication.views
 
+import android.util.Log
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -44,7 +48,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
@@ -64,7 +75,7 @@ fun HomeView(groups: List<Group>, modifier: Modifier) {
     } else {
         val (group, setGroup) = rememberSaveable { mutableStateOf(groups[currentGroup]) }
 
-        EditGroup(group, modifier,
+        EditGroup(Group(group.name, group.calendars), modifier,
             onExit = { currentGroup = -1 },
             onEdit = { g ->
                 setGroup(g)
@@ -146,47 +157,66 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit) {
+    val editName = remember { mutableStateOf(false) }
     val mainActivity = LocalActivity.current as MainActivity
-    Column(modifier = modifier.fillMaxWidth()) {
-        IconButton(onClick = onExit, Modifier.align(Alignment.End)) {
-            Icon(
-                Icons.Default.Close,
-                "Cancel edit",
-            )
-        }
-
-        Text(text = "Editing group " + group.name, modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxWidth())
-
+    Column(modifier = modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.size(16.dp))
         val nameValue = remember { mutableStateOf(group.name) }
-        TextField(
-            value = nameValue.value,
-            onValueChange = { v ->
-                nameValue.value = v
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(text = "Calendars", modifier = Modifier.align(Alignment.CenterHorizontally))
-            Spacer(modifier = Modifier.size(16.dp))
-
-            val openCreateCalendarDialog = remember { mutableStateOf(false) }
-            if (openCreateCalendarDialog.value)
-                AddCalendarDialog(
-                    onDismissRequest = { openCreateCalendarDialog.value = false },
-                    addCalender = { cal ->
-                        group.calendars.add(cal)
-                        onEdit(group)
-                    }
+        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName.value = true })) {
+            if (!editName.value) {
+                Text(text = group.name, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
+                EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
+            } else {
+                TextField(
+                    value = nameValue.value,
+                    onValueChange = { v ->
+                        if (v.endsWith("\n")) editName.value = false
+                        nameValue.value = v.replace("\n", "")
+                        group.name = v.replace("\n", "")
+                    },
+                    modifier = Modifier.align(Alignment.Center)
+                        .onFocusEvent { event ->
+                            //if (!event.isCaptured) editName.value = false
+                        },
+                    textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
                 )
-            Box(modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)) {
-                Button(onClick = { openCreateCalendarDialog.value = true }, modifier = Modifier.align(Alignment.Center)) {
-                    Text("Add new calendar")
-                }
+                CloseIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName.value = false })
             }
-            Spacer(modifier = Modifier.size(16.dp))
-            EditGroupCalendarList(group, onEdit = onEdit)
         }
+        Spacer(modifier = Modifier.size(32.dp))
+
+        Text(text = "Calendars", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(5.0f,TextUnitType.Em))
+        Spacer(modifier = Modifier.size(10.dp))
+        val items = ArrayList<@Composable () -> Unit>()
+        for (i in 0..<group.calendars.size) {
+            items.add({
+                Row(Modifier.fillMaxSize().padding(2.dp), Arrangement.SpaceBetween) {
+                    CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
+                    Box(Modifier.align(Alignment.CenterVertically).clickable { group.calendars.removeAt(i); onEdit(group) }) {
+                        DeleteIcon(Modifier.align(Alignment.CenterEnd))
+                    }
+                }
+            })
+        }
+        val openCreateCalendarDialog = remember { mutableStateOf(false) }
+        if (openCreateCalendarDialog.value)
+            AddCalendarDialog(
+                onDismissRequest = { openCreateCalendarDialog.value = false },
+                addCalender = { cal ->
+                    group.calendars.add(cal)
+                    onEdit(group)
+                }
+            )
+        items.add({
+            Box(
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(CornerSize(8.dp))).clickable(
+                    onClick = { openCreateCalendarDialog.value = true }
+                ),
+            ) {
+                Text("Add new calendar", Modifier.align(Alignment.Center))
+            }
+        })
+        ItemList(items, Modifier.fillMaxWidth().fillMaxHeight(0.75f))
 
         Row(
             horizontalArrangement = Arrangement.Center,
@@ -205,6 +235,21 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
 
             Button(
                 onClick = {
+                    onExit()
+                },
+                colors = ButtonColors(
+                    Color.Cyan,
+                    ButtonDefaults.buttonColors().contentColor,
+                    ButtonDefaults.buttonColors().disabledContainerColor,
+                    ButtonDefaults.buttonColors().disabledContentColor,
+                ),
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) {
+                Text("Cancel")
+            }
+
+            Button(
+                onClick = {
                     mainActivity.removeGroup(group)
                     onExit()
                 },
@@ -219,40 +264,6 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 Text("Delete group")
             }
         }
-    }
-}
-
-@Composable
-fun EditGroupCalendarList(group: Group, onEdit: (group: Group) -> Unit) {
-    for (i in 0..<group.calendars.size) {
-        DropdownMenuItem(
-            text = {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                        .background(color = MaterialTheme.colorScheme.tertiaryContainer)
-                ) {
-                    CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
-
-                    Button(
-                        onClick = {
-                            group.calendars.removeAt(i)
-                            onEdit(group)
-                        },
-                        colors = ButtonColors(
-                            Color.Red,
-                            ButtonDefaults.buttonColors().contentColor,
-                            ButtonDefaults.buttonColors().disabledContainerColor,
-                            ButtonDefaults.buttonColors().disabledContentColor,
-                        ),
-                        modifier = Modifier.align(Alignment.CenterVertically)
-                    ) { Text("Delete") }
-                }
-            },
-            onClick = {}
-        )
-
-        Spacer(modifier = Modifier.size(8.dp))
     }
 }
 
@@ -339,17 +350,14 @@ fun DeleteIcon(modifier: Modifier) {
     Box(
         modifier
             .aspectRatio(1f)
-            .padding(2.dp)
-            .background(
-                shape = RoundedCornerShape(CornerSize(2.dp)),
-                color = MaterialTheme.colorScheme.errorContainer,
-            ),
+            .padding(2.dp),
         Alignment.Center
     ) {
         Icon(
             Icons.Default.Delete,
             "Delete",
             Modifier.fillMaxSize(),
+            MaterialTheme.colorScheme.errorContainer
         )
     }
 }

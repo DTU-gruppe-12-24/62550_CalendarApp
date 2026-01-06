@@ -6,17 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.importZippedIcal
-import java.io.File
-import java.net.URI
 
 class GetCustomContents(
     private val isMultiple: Boolean = false, //This input check if the select file option is multiple or not
@@ -66,7 +62,7 @@ class GetCustomContents(
 }
 
 @Composable
-public fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
+fun CalendarImport(onResult: (calendar: Calendar?) -> Unit) {
     val context = LocalContext.current
 
     val filePicker = rememberLauncherForActivityResult(

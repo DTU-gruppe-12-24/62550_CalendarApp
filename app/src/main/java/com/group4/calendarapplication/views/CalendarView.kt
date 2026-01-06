@@ -188,16 +188,14 @@ fun CalendarComponent(
 ) {
     var current by rememberSaveable { mutableStateOf(LocalDate.now()) }
     val datesInCurrentMonth = getDatesInMonth(current)
-    val occupiedDates = datesInCurrentMonth.map {
-        date -> {
-            val colors = ArrayList<Color>()
-            if(group != null)
-                for (calendar in group.calendars) {
-                    if(calendar.dates.any { event -> event.isDateTimeWithInEvent(date) })
-                        colors.add(calendar.color)
-                }
-            Pair(date, colors)
-        }()
+    val occupiedDates = datesInCurrentMonth.map { date ->
+        val colors = ArrayList<Color>()
+        if(group != null)
+            for (calendar in group.calendars) {
+                if(calendar.dates.any { event -> event.isDateTimeWithInEvent(date) })
+                    colors.add(calendar.color)
+            }
+        Pair(date, colors)
     }
 
     val combinedSwipeDelta = remember { mutableFloatStateOf(0.0f) }

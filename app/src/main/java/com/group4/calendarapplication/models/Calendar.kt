@@ -3,31 +3,24 @@ package com.group4.calendarapplication.models
 import android.util.Log
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
-import java.io.IOException
 import java.io.InputStream
-import java.time.DateTimeException
 import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.Month
-import java.time.MonthDay
-import java.time.Year
-import java.time.ZonedDateTime
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeFormatterBuilder
-import java.time.temporal.ChronoField
-import java.time.temporal.IsoFields
-import java.time.temporal.TemporalField
-import java.time.temporal.TemporalQueries
-import java.time.temporal.WeekFields
-import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import kotlin.random.Random
+import java.time.Duration
+import java.time.LocalDate
 
 
 @Serializable
-class Event(val start: LocalDate, val end: LocalDate) : java.io.Serializable {
-    fun isDateTimeWithInEvent(date: LocalDate) : Boolean {
+class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializable {
+    fun isDateTimeWithInEvent(date: LocalDateTime) : Boolean {
         return (start.isBefore(date) || start == date) && (end.isAfter(date) || end == date)
+    }
+
+    fun isDateTimeWithInEvent(date: LocalDate) : Boolean {
+        return (start.toLocalDate().isBefore(date) || start.toLocalDate() == date) && (end.toLocalDate().isAfter(date) || end.toLocalDate() == date)
     }
 }
 
@@ -50,10 +43,10 @@ fun importZippedIcal(input: InputStream) : ArrayList<Calendar> {
 }
 
 fun importIcal(input: InputStream) : Calendar {
-    val inputAsString = String(input.readAllBytes())
+    val inputAsString = String(input.readBytes())
 
     // Get lines and combine lines if split across multiple lines
-    val lines: ArrayList<String> = ArrayList<String>(inputAsString.split("\r\n").toList())
+    val lines: ArrayList<String> = ArrayList(inputAsString.split("\r\n").toList())
     lines.indices
         .filter{index -> lines[index].startsWith(' ') || lines[index].startsWith('\t')}
         .forEach{index -> {
@@ -65,8 +58,9 @@ fun importIcal(input: InputStream) : Calendar {
     val dates = ArrayList<Event>()
     // Go through each line and parse ical
     val activeSections: ArrayList<String> = ArrayList()
-    var startDate : LocalDate? = null
-    var endDate : LocalDate? = null
+    var startDate : LocalDateTime? = null
+    var endDate : LocalDateTime? = null
+    val repeatedDates = ArrayList<Event>()
     var lineIndex = 0
     for (line in lines) {
         lineIndex++
@@ -96,6 +90,7 @@ fun importIcal(input: InputStream) : Calendar {
                 val value = line.split(":").last()
 
                 when (attributeMain) {
+                    // Start time of event
                     "DTSTART" -> {
                         if (attribute.contains(";")) {
                             val attributeSecondary = attribute.split(";").last()
@@ -107,6 +102,7 @@ fun importIcal(input: InputStream) : Calendar {
                             startDate = parseDate(value, "yyyyMMdd'T'HHmmssX")
                         }
                     }
+                    // End time of events
                     "DTEND" -> {
                         if (attribute.contains(";")) {
                             val attributeSecondary = attribute.split(";").last()
@@ -118,24 +114,132 @@ fun importIcal(input: InputStream) : Calendar {
                             endDate = parseDate(value, "yyyyMMdd'T'HHmmssX")
                         }
                     }
-                    // TODO: Handle recurring events (events scheduled weekly, monthly etc. only show up once in file)
+                    // Repeats of event
+                    "RRULE" -> {
+                        if (startDate == null || endDate == null) {
+                            Log.w("CalendarImport", "Invalid ical: Calendar events must have both a start and an end time before it can be repeated. At line $lineIndex.")
+                            continue
+                        }
+
+                        val eventDuration = Duration.between(startDate, endDate)
+
+                        val values = value.split(";").associateBy({ it.split("=").first() }, { it.split("=").last() } )
+
+                        val interval = values["INTERVAL"]?.toInt() ?: 1 //throw UnsupportedOperationException("Invalid ical: Can't repeat without a valid INTERVAL key. At line $lineIndex.");
+                        val offset = Duration.between(
+                            startDate,
+                            when (values["FREQ"]) {
+                                "YEARLY" -> startDate.plusYears(1)
+                                "MONTHLY" -> startDate.plusMonths(1)
+                                "WEEKLY" -> startDate.plusWeeks(1)
+                                "DAILY" -> startDate.plusDays(1)
+                                "HOURLY" -> startDate
+                                "MINUTELY" -> startDate
+                                "SECONDLY" -> startDate
+                                else -> throw UnsupportedOperationException("Invalid ical: Can't repeat without a valid FREQ key. At line $lineIndex.")
+                            }
+                        ).multipliedBy(interval.toLong())
+                        val count = values["COUNT"]?.toInt() ?: -1
+                        val until = if (values.contains("UNTIL")) {
+                            parseDate(
+                                values["UNTIL"] ?: throw UnsupportedOperationException("Invalid ical: Can't repeat without a valid UNTIL key. At line $lineIndex."),
+                                "yyyyMMdd'T'HHmmssX"
+                            )
+                        } else if (count > 0) {
+                            startDate + offset.multipliedBy(count.toLong())
+                        } else {
+                            Log.w("CalendarImport","Invalid ical: Can't repeat without a COUNT or UNTIL key. At line $lineIndex.")
+                            continue
+                        }
+
+                        var date: LocalDateTime = startDate
+                        if (values["FREQ"] == "WEEKLY" && values.contains("BYDAY") && !values.contains("INTERVAL")) {
+                            while (date <= until && (count > 0 && repeatedDates.size < count)) {
+                                // Check if date is filtered out
+                                var valid = true
+                                if (!(values["BYYEAR"]?.contains(date.year.toString()) ?: true)) valid = false
+                                if (!(values["BYMONTH"]?.contains(date.month.toString()) ?: true)) valid = false
+                                if (!(values["BYDAY"]?.contains(date.getDayOfWeek2Letters()) ?: true)) valid = false
+                                // Add new event
+                                if (valid) repeatedDates.add(Event(date, date + eventDuration))
+                                // Next date
+                                date = date.plusDays(1)
+                            }
+                        } else {
+                            while (date <= until && (count <= 0 || repeatedDates.size >= count)) {
+                                // Check if date is filtered out
+                                var valid = true
+                                if (!(values["BYYEAR"]?.contains(date.year.toString()) ?: true)) valid = false
+                                if (!(values["BYMONTH"]?.contains(date.month.toString()) ?: true)) valid = false
+                                if (!(values["BYDAY"]?.contains(date.getDayOfWeek2Letters()) ?: true)) valid = false
+                                // Add new event
+                                if (valid) repeatedDates.add(Event(date, date + eventDuration))
+                                // Next date
+                                date = date.plus(offset)
+                            }
+                        }
+                    }
+                    // Exclude date from repeat
+                    "EXDATE" -> {
+                        if (repeatedDates.isEmpty()) {
+                            Log.w("CalendarImport", "Invalid ical: EXCAL items must come after an RRULE. At line $lineIndex.")
+                            continue
+                        }
+                        // Parse date
+                        var date = LocalDateTime.now()
+                        if (attribute.contains(";")) {
+                            val attributeSecondary = attribute.split(";").last()
+                            if (attributeSecondary == "VALUE=DATE") date = parseDate(value, "yyyyMMdd")
+                            else if (attributeSecondary.startsWith("TZID")) {
+                                date = parseDate(value, "yyyyMMdd'T'HHmmss")
+                            }
+                        } else {
+                            date = parseDate(value, "yyyyMMdd'T'HHmmssX")
+                        }
+                        // Remove from recurring list
+                        repeatedDates.removeAll { d -> d.start == date }
+                    }
+                    // Repeat event on specific dates
+                    "RDATE" -> {
+                        if (startDate == null || endDate == null) {
+                            Log.w("CalendarImport", "Invalid ical: Calendar events must have both a start and an end time before it can be repeated. At line $lineIndex.")
+                            continue
+                        }
+                        val eventDuration = Duration.between(startDate, endDate)
+                        // Parse date
+                        value.split(",").forEach { v ->
+                            var date = LocalDateTime.now()
+                            if (attribute.contains(";")) {
+                                val attributeSecondary = attribute.split(";").last()
+                                if (attributeSecondary == "VALUE=DATE") date = parseDate(v, "yyyyMMdd")
+                                else if (attributeSecondary.startsWith("TZID")) {
+                                    date = parseDate(v, "yyyyMMdd'T'HHmmss")
+                                }
+                            } else {
+                                date = parseDate(v, "yyyyMMdd'T'HHmmssX")
+                            }
+                            repeatedDates.add(Event(date, date + eventDuration))
+                        }
+                    }
+                    // End event and add all found info to list of dates
                     "END" -> {
                         if (startDate == null || endDate == null) {
                             Log.w("CalendarImport", "Calendar events must have both a start and an end time. At line $lineIndex.")
-                            //throw UnsupportedOperationException("Invalid ical: Calendar events must have both a start and an end time. At line $lineIndex.")
                             continue
                         }
                         // Add event to calendar
-                        dates.add(Event(startDate, endDate))
+                        if (repeatedDates.isEmpty()) dates.add(Event(startDate, endDate))
+                        dates.addAll(repeatedDates)
                         // Reset start and end dates
                         startDate = null
                         endDate = null
+                        repeatedDates.clear()
                     }
                 }
             }
         }
 
-        // End section?
+        // End current section?
         if (line.startsWith("END:")) {
             val section = line.replace("END:", "")
             if (section != activeSections.last()) throw UnsupportedOperationException("Invalid ical: Can't end section \"$section\" before it's started. At line $lineIndex.")
@@ -148,12 +252,31 @@ fun importIcal(input: InputStream) : Calendar {
     return Calendar(name, color, dates)
 }
 
-fun parseDate(date: String, format: String) : LocalDate {
+fun parseDate(date: String, format: String) : LocalDateTime {
     val formatter = DateTimeFormatter.ofPattern(format)
+
+    return if (format.contains("T")) {
+        LocalDateTime.parse(date, formatter)
+    } else {
+        LocalDate.parse(date, formatter).atTime(0, 0)
+    }
+
+    /*
     val temporal = formatter.parse(date)
 
     val year = Year.from(temporal)
     val monthDay = MonthDay.from(temporal)
 
-    return LocalDate.of(year.value, monthDay.month, monthDay.dayOfMonth) ?: throw DateTimeException("Failed to parse \"$date\" as DateTime")
+    return LocalDateTime.of(year.value, monthDay.month, monthDay.dayOfMonth) ?: throw DateTimeException("Failed to parse \"$date\" as DateTime")
+     */
+}
+
+private fun LocalDateTime.getDayOfWeek2Letters() : String = when (this.dayOfWeek) {
+    DayOfWeek.MONDAY -> "MO"
+    DayOfWeek.TUESDAY -> "TU"
+    DayOfWeek.WEDNESDAY -> "WE"
+    DayOfWeek.THURSDAY -> "TH"
+    DayOfWeek.FRIDAY -> "FR"
+    DayOfWeek.SATURDAY -> "SA"
+    DayOfWeek.SUNDAY -> "SU"
 }

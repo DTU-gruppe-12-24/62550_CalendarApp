@@ -1,11 +1,8 @@
 package com.group4.calendarapplication.views
 
-import android.util.Log
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +20,8 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -32,7 +29,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,11 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
@@ -63,7 +54,6 @@ import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.MainActivity
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
-import kotlin.random.Random
 
 @Composable
 fun HomeView(groups: List<Group>, modifier: Modifier) {
@@ -151,12 +141,13 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
             }
             Spacer(modifier = Modifier.size(16.dp))
         }
-        CloseIcon(modifier = Modifier, onClick = onDismissRequest)
+        CloseIconButton(modifier = Modifier, onClick = onDismissRequest)
     }
 }
 
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit) {
+    val editMade = remember { mutableStateOf(false) }
     val editName = remember { mutableStateOf(false) }
     val mainActivity = LocalActivity.current as MainActivity
     Column(modifier = modifier.fillMaxSize()) {
@@ -173,26 +164,32 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                         if (v.endsWith("\n")) editName.value = false
                         nameValue.value = v.replace("\n", "")
                         group.name = v.replace("\n", "")
+                        editMade.value = true
                     },
                     modifier = Modifier.align(Alignment.Center)
-                        .onFocusEvent { event ->
-                            //if (!event.isCaptured) editName.value = false
+                        .onFocusEvent {
+                            //if (!it.isCaptured) editName.value = false
                         },
                     textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
                 )
-                CloseIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName.value = false })
+                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName.value = false })
             }
         }
         Spacer(modifier = Modifier.size(32.dp))
 
         Text(text = "Calendars", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(5.0f,TextUnitType.Em))
         Spacer(modifier = Modifier.size(10.dp))
+
+        val confirmCalendarDelete = remember { mutableStateOf(false) }
+        val calendarDeleteIndex = remember { mutableIntStateOf(-1) }
+        if (confirmCalendarDelete.value) ConfirmDialog(text = "Do you want to delete calendar \"${group.calendars[calendarDeleteIndex.intValue].name}\" from \"${group.name}\"? (This cannot be undone)", onSuccess = { group.calendars.removeAt(calendarDeleteIndex.intValue); confirmCalendarDelete.value = false } , onFail = { confirmCalendarDelete.value = false })
+
         val items = ArrayList<@Composable () -> Unit>()
         for (i in 0..<group.calendars.size) {
             items.add({
                 Row(Modifier.fillMaxSize().padding(2.dp), Arrangement.SpaceBetween) {
                     CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
-                    Box(Modifier.align(Alignment.CenterVertically).clickable { group.calendars.removeAt(i); onEdit(group) }) {
+                    Box(Modifier.align(Alignment.CenterVertically).clickable { calendarDeleteIndex.intValue = i; confirmCalendarDelete.value = true }) {
                         DeleteIcon(Modifier.align(Alignment.CenterEnd))
                     }
                 }
@@ -204,6 +201,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 onDismissRequest = { openCreateCalendarDialog.value = false },
                 addCalender = { cal ->
                     group.calendars.add(cal)
+                    editMade.value = true
                     onEdit(group)
                 }
             )
@@ -219,7 +217,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
         ItemList(items, Modifier.fillMaxWidth().fillMaxHeight(0.75f))
 
         Row(
-            horizontalArrangement = Arrangement.Center,
+            horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
         ) {
             Button(
@@ -230,12 +228,16 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 },
                 modifier = Modifier.align(Alignment.CenterVertically)
             ) {
-                Text("Save group")
+                SaveIcon(Modifier.size(24.dp))
+                Text("Save")
             }
 
+            val confirmCancel = remember { mutableStateOf(false) }
+            if (confirmCancel.value) ConfirmDialog(text = "Are you sure you want to exit without saving your changes?", onSuccess = { onExit(); confirmCancel.value = false } , onFail = { confirmCancel.value = false })
             Button(
                 onClick = {
-                    onExit()
+                    if (editMade.value) confirmCancel.value = true
+                    else onExit()
                 },
                 colors = ButtonColors(
                     Color.Cyan,
@@ -245,13 +247,15 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 ),
                 modifier = Modifier.align(Alignment.CenterVertically)
             ) {
+                CloseIcon(Modifier.size(24.dp))
                 Text("Cancel")
             }
 
+            val confirmGroupDelete = remember { mutableStateOf(false) }
+            if (confirmGroupDelete.value) ConfirmDialog(text = "Do you want to delete group \"${group.name}\"? (This cannot be undone)", onSuccess = { mainActivity.removeGroup(group); onExit(); confirmGroupDelete.value = false } , onFail = { confirmGroupDelete.value = false })
             Button(
                 onClick = {
-                    mainActivity.removeGroup(group)
-                    onExit()
+                    confirmGroupDelete.value = true
                 },
                 colors = ButtonColors(
                     Color.Red,
@@ -261,7 +265,8 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 ),
                 modifier = Modifier.align(Alignment.CenterVertically)
             ) {
-                Text("Delete group")
+                DeleteIcon(Modifier.size(24.dp))
+                Text("Delete")
             }
         }
     }
@@ -326,7 +331,7 @@ fun ItemList(items: List<@Composable () -> Unit>, modifier: Modifier) {
 }
 
 @Composable
-fun EditIcon(modifier: Modifier) {
+fun EditIcon(modifier: Modifier = Modifier) {
     Box(
         modifier
             .aspectRatio(1f)
@@ -346,7 +351,7 @@ fun EditIcon(modifier: Modifier) {
 }
 
 @Composable
-fun DeleteIcon(modifier: Modifier) {
+fun DeleteIcon(modifier: Modifier = Modifier) {
     Box(
         modifier
             .aspectRatio(1f)
@@ -363,11 +368,92 @@ fun DeleteIcon(modifier: Modifier) {
 }
 
 @Composable
-fun CloseIcon(modifier: Modifier, onClick: () -> Unit) {
+fun SaveIcon(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .padding(2.dp),
+        Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.CheckCircle,
+            "Save",
+            Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+fun CloseIcon(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .padding(2.dp),
+        Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.Close,
+            "Cancel",
+            Modifier.fillMaxSize(),
+        )
+    }
+}
+
+@Composable
+fun CloseIconButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier) {
         Icon(
             Icons.Default.Close,
             "Cancel",
         )
+    }
+}
+
+@Composable
+fun ConfirmDialog(text: String, onSuccess: () -> Unit, onFail: () -> Unit) {
+    Dialog(onDismissRequest = { }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            shape = RoundedCornerShape(16.dp),
+        )  {
+            Spacer(modifier = Modifier.size(16.dp))
+            Box(Modifier.fillMaxWidth(0.8f).align(Alignment.CenterHorizontally)) {
+                Text(
+                    text = text,
+                    modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+                    fontSize = TextUnit(4.0f, TextUnitType.Em)
+                )
+            }
+            Spacer(modifier = Modifier.size(16.dp))
+            Row(modifier = Modifier.fillMaxWidth(0.9f).align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .background(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(CornerSize(16.dp)),
+                        )
+                        .padding(8.dp, 2.dp)
+                        .clickable { onSuccess() }
+                ) {
+                    Text("Yes")
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .background(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(CornerSize(16.dp)),
+                        )
+                        .padding(8.dp, 2.dp)
+                        .clickable { onFail() }
+                ) {
+                    Text("No")
+                }
+            }
+            Spacer(modifier = Modifier.size(16.dp))
+        }
     }
 }

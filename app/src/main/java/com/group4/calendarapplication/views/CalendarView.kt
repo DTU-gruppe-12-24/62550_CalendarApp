@@ -161,8 +161,11 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             }
 
 
+            // Filters
+            CalendarFilterBar(
+                calendars = groups[activeGroup].calendars
+            )
         }
-
     }
 }
 
@@ -302,11 +305,16 @@ private fun CalendarCell(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        Row(modifier = Modifier.fillMaxWidth().offset(0.dp, 15.dp).align(Alignment.Center), horizontalArrangement = Arrangement.SpaceAround) {
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .offset(0.dp, 15.dp)
+            .align(Alignment.Center), horizontalArrangement = Arrangement.SpaceAround) {
             for (color in colors) {
                 Card(
                     shape = CircleShape,
-                    modifier = Modifier.size(10.dp, 10.dp).align(Alignment.CenterVertically),
+                    modifier = Modifier
+                        .size(10.dp, 10.dp)
+                        .align(Alignment.CenterVertically),
                     colors = CardColors(
                         color,
                         ButtonDefaults.buttonColors().contentColor,
@@ -327,7 +335,6 @@ private fun WeekdayCell(weekday: Int, modifier: Modifier = Modifier) {
         modifier = modifier
             .aspectRatio(1f)
             .fillMaxSize()
-
     ) {
         Text(
             text = text,
@@ -357,7 +364,6 @@ private fun CalendarGrid(
                     text = "#",
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.align(Alignment.BottomCenter)
-
                 )
             }
             weekdays.forEach {
@@ -374,7 +380,6 @@ private fun CalendarGrid(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.align(Alignment.TopCenter)
                     )
-
                 }
             }
             // Align the first day of the month to the correct weekday

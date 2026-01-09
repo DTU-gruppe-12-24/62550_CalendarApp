@@ -108,8 +108,15 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
                 isDialogOpen.value = true
                 dialogDate.value = date
-            }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).weight(1f))
+            }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp))
 
+
+            // Filters
+            CalendarFilterBar(
+                calendars = groups[activeGroup].calendars
+            )
+
+            Spacer(modifier = Modifier.size(10.dp).weight(1f))
 
             // Group selector
             if(groups.isNotEmpty()) {
@@ -159,12 +166,6 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                     }
                 }
             }
-
-
-            // Filters
-            CalendarFilterBar(
-                calendars = groups[activeGroup].calendars
-            )
         }
     }
 }

@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
+import com.group4.calendarapplication.ui.theme.LocalCalendarColors
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -392,12 +393,12 @@ private fun CalendarGrid(
                         )
                     }
                 }
-
-                var status = Color(0xFF9FD794)
+                val colors = LocalCalendarColors.current
+                var status = colors.calendargreen
                 if(it.second.isNotEmpty()) {
-                    if(it.second.size >= calendarCount * 0.9f) status = Color(0xFFE18E8E)
-                    else if(it.second.size >= calendarCount * 0.5f) status = Color(0xFFDEB589)
-                    else status = Color(0xFFE7DFA3)
+                    if(it.second.size >= calendarCount * 0.9f) status = colors.calendarred
+                    else if(it.second.size >= calendarCount * 0.5f) status = colors.calendarorange
+                    else status = colors.calendaryellow
                 }
                 CalendarCell(date = it.first, status = status, colors = it.second, onClick = { onClick(it.first) })
             }

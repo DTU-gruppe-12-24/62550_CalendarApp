@@ -53,6 +53,7 @@ import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.MainActivity
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
+import com.group4.calendarapplication.ui.theme.LocalCalendarColors
 
 @Composable
 fun HomeView(groups: List<Group>, modifier: Modifier) {
@@ -155,6 +156,7 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit, deleteGroup: () -> Unit) {
     val editMade = remember { mutableStateOf(false) }
     val editName = remember { mutableStateOf(false) }
+    val colors = LocalCalendarColors.current
     val mainActivity = LocalActivity.current as MainActivity
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.size(16.dp))
@@ -327,7 +329,6 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 CloseIcon(Modifier.size(24.dp))
                 Text("Cancel")
             }
-
             val confirmGroupDelete = remember { mutableStateOf(false) }
             if (confirmGroupDelete.value)
                 ConfirmDialog(
@@ -340,7 +341,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                     confirmGroupDelete.value = true
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE18E8E),
+                    containerColor = colors.calendarred,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
 
                 ),
@@ -465,6 +466,7 @@ fun CloseIconButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 
 @Composable
 fun ConfirmDialog(text: String, onSuccess: () -> Unit, onFail: () -> Unit) {
+    val colors = LocalCalendarColors.current
     Dialog(onDismissRequest = { }) {
         Card(
             modifier = Modifier
@@ -481,12 +483,13 @@ fun ConfirmDialog(text: String, onSuccess: () -> Unit, onFail: () -> Unit) {
                 )
             }
             Spacer(modifier = Modifier.size(16.dp))
+
             Row(modifier = Modifier.fillMaxWidth(0.9f).align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterVertically)
                         .background(
-                            color = Color(0xFFE18E8E),
+                            color = colors.calendarred,
                             shape = RoundedCornerShape(CornerSize(16.dp)),
                         )
                         .padding(10.dp, 4.dp)

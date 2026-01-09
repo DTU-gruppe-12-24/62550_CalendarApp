@@ -94,7 +94,8 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
         // Group selector
         if(groups.isNotEmpty()) {
             Box(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
                     .background(color = MaterialTheme.colorScheme.secondaryContainer)
             ) {
@@ -102,7 +103,9 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
                 Row(
                     horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
                         .clickable(onClick = { expanded.value = true })
                 ) {
                     Text(
@@ -142,6 +145,11 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                 isDialogOpen.value = true
                 dialogDate.value = date
             }, modifier = Modifier.fillMaxWidth())
+
+            // Filters
+            CalendarFilterBar(
+                calendars = groups[activeGroup].calendars
+            )
 
             // Legend
             if (activeGroup != -1) {
@@ -291,11 +299,16 @@ private fun CalendarCell(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        Row(modifier = Modifier.fillMaxWidth().offset(0.dp, 15.dp).align(Alignment.Center), horizontalArrangement = Arrangement.SpaceAround) {
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .offset(0.dp, 15.dp)
+            .align(Alignment.Center), horizontalArrangement = Arrangement.SpaceAround) {
             for (color in colors) {
                 Card(
                     shape = CircleShape,
-                    modifier = Modifier.size(10.dp, 10.dp).align(Alignment.CenterVertically),
+                    modifier = Modifier
+                        .size(10.dp, 10.dp)
+                        .align(Alignment.CenterVertically),
                     colors = CardColors(
                         color,
                         ButtonDefaults.buttonColors().contentColor,
@@ -340,7 +353,9 @@ private fun CalendarGrid(
 
     Layout(
         content = {
-            Box(modifier = modifier.aspectRatio(1f).fillMaxSize()) {
+            Box(modifier = modifier
+                .aspectRatio(1f)
+                .fillMaxSize()) {
                 Text(
                     text = "#",
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -352,14 +367,18 @@ private fun CalendarGrid(
             }
             // Display first week number (if month doesn't start on a monday)
             if(weekdayFirstDay > 0) {
-                Box(modifier = modifier.aspectRatio(1f).fillMaxSize()) {
+                Box(modifier = modifier
+                    .aspectRatio(1f)
+                    .fillMaxSize()) {
                     val day = date.first().first.minusDays(date.first().first.dayOfWeek.ordinal.toLong())
                     var num = (day.dayOfYear / 7) + (if(((day.dayOfYear - 1) % 7) > 0) 1 else 0) + (if(day.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)
                     if(date.first().first.dayOfYear <= 7) num = (if(date.first().first.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)
                     Text(
                         text = num.toString(),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.align(Alignment.Center).fillMaxSize()
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxSize()
                     )
                 }
             }
@@ -371,11 +390,15 @@ private fun CalendarGrid(
             date.forEach {
                 // Display week numbers
                 if(it.first.dayOfWeek == DayOfWeek.MONDAY) {
-                    Box(modifier = modifier.aspectRatio(1f).fillMaxSize()) {
+                    Box(modifier = modifier
+                        .aspectRatio(1f)
+                        .fillMaxSize()) {
                         Text(
                             text = ((it.first.dayOfYear / 7 ) + (if(((it.first.dayOfYear - 1) % 7) > 0) 1 else 0) + (if(it.first.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)).toString(),
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.align(Alignment.Center).fillMaxSize()
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .fillMaxSize()
                         )
                     }
                 }

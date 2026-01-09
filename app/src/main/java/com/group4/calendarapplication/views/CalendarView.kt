@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
+import com.group4.calendarapplication.ui.theme.LocalCalendarColors
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -73,13 +74,11 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
         Dialog(onDismissRequest = { isDialogOpen.value = false }) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(16.dp),
+                    .height(200.dp),
                 shape = RoundedCornerShape(16.dp),
             )  {
-                Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally))
-                Text("Occupied by:")
+                Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
+                Text("Occupied by:", modifier = Modifier.padding(10.dp))
                 groups[activeGroup].calendars.forEach { calendar ->
                     if (calendar.dates.any { event -> event.isDateTimeWithInEvent(dialogDate.value) }) {
                         CalendarLegend(calendar, Modifier.fillMaxWidth())
@@ -91,74 +90,79 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
     // Calendar component
     Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
-        // Group selector
-        if(groups.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.CenterHorizontally)
-                    .background(color = MaterialTheme.colorScheme.secondaryContainer)
-            ) {
-                val expanded = remember { mutableStateOf(false) }
 
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .clickable(onClick = { expanded.value = true })
+        Column(modifier = Modifier.fillMaxHeight()) {
+            // Legend
+            if (activeGroup != -1) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    //verticalArrangement = Arrangement.Bottom
                 ) {
-                    Text(
-                        text = groups[activeGroup].name,
-                        textAlign = TextAlign.Center
-                    )
-                    Icon(
-                        Icons.Default.ArrowDropDown,
-                        "Select active calendar group",
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = expanded.value,
-                    onDismissRequest = { expanded.value = false },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center)
-                        .background(color = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    for (i in 0..<groups.size) {
-                        DropdownMenuItem(
-                            text = { Text(text = groups[i].name) },
-                            onClick = {
-                                activeGroup = i
-                                expanded.value = false
-                            }
-                        )
+                    groups[activeGroup].calendars.forEach { calendar ->
+                        CalendarLegend(calendar, Modifier.fillMaxWidth())
                     }
                 }
             }
-        }
 
-        Column(modifier = Modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
             // Calendar
             CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
                 isDialogOpen.value = true
                 dialogDate.value = date
-            }, modifier = Modifier.fillMaxWidth())
+            }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp))
+
 
             // Filters
             CalendarFilterBar(
                 calendars = groups[activeGroup].calendars
             )
 
-            // Legend
-            if (activeGroup != -1) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.Bottom
+            Spacer(modifier = Modifier.size(10.dp).weight(1f))
+
+            // Group selector
+            if(groups.isNotEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                        .align(Alignment.CenterHorizontally)
+                        .background(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        )
+                        .padding(12.dp)
+
                 ) {
-                    groups[activeGroup].calendars.forEach { calendar ->
-                        CalendarLegend(calendar, Modifier.fillMaxWidth())
+                    val expanded = remember { mutableStateOf(false) }
+
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                            .clickable(onClick = { expanded.value = true })
+                    ) {
+                        Text(
+                            text = groups[activeGroup].name,
+                            textAlign = TextAlign.Center
+                        )
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            "Select active calendar group",
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded.value,
+                        onDismissRequest = { expanded.value = false },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.Center)
+                            .background(color = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        for (i in 0..<groups.size) {
+                            DropdownMenuItem(
+                                text = { Text(text = groups[i].name) },
+                                onClick = {
+                                    activeGroup = i
+                                    expanded.value = false
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -168,10 +172,13 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
 @Composable
 fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
-    Row (modifier = modifier, horizontalArrangement = Arrangement.Start) {
+    Row (modifier = modifier) {
         Card(
             shape = CircleShape,
-            modifier = Modifier.size(25.dp, 25.dp),
+            modifier = Modifier
+                .size(25.dp, 25.dp)
+                .padding(start = 10.dp, bottom = 5.dp, top = 5.dp),
+
             colors = CardColors(
                 calendar.color,
                 ButtonDefaults.buttonColors().contentColor,
@@ -353,9 +360,7 @@ private fun CalendarGrid(
 
     Layout(
         content = {
-            Box(modifier = modifier
-                .aspectRatio(1f)
-                .fillMaxSize()) {
+            Box(modifier = modifier.aspectRatio(1f)) {
                 Text(
                     text = "#",
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -367,18 +372,14 @@ private fun CalendarGrid(
             }
             // Display first week number (if month doesn't start on a monday)
             if(weekdayFirstDay > 0) {
-                Box(modifier = modifier
-                    .aspectRatio(1f)
-                    .fillMaxSize()) {
+                Box(modifier = modifier.aspectRatio(1f).padding(end = 3.dp)) {
                     val day = date.first().first.minusDays(date.first().first.dayOfWeek.ordinal.toLong())
                     var num = (day.dayOfYear / 7) + (if(((day.dayOfYear - 1) % 7) > 0) 1 else 0) + (if(day.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)
                     if(date.first().first.dayOfYear <= 7) num = (if(date.first().first.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)
                     Text(
                         text = num.toString(),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .fillMaxSize()
+                        modifier = Modifier.align(Alignment.TopCenter)
                     )
                 }
             }
@@ -390,24 +391,20 @@ private fun CalendarGrid(
             date.forEach {
                 // Display week numbers
                 if(it.first.dayOfWeek == DayOfWeek.MONDAY) {
-                    Box(modifier = modifier
-                        .aspectRatio(1f)
-                        .fillMaxSize()) {
+                    Box(modifier = modifier.aspectRatio(1f).padding(end = 3.dp)) {
                         Text(
                             text = ((it.first.dayOfYear / 7 ) + (if(((it.first.dayOfYear - 1) % 7) > 0) 1 else 0) + (if(it.first.withDayOfYear(1).dayOfWeek.ordinal <= 3) 1 else 0)).toString(),
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .fillMaxSize()
+                            modifier = Modifier.align(Alignment.TopCenter)
                         )
                     }
                 }
-
-                var status = Color(0xff327025)
+                val colors = LocalCalendarColors.current
+                var status = colors.calendargreen
                 if(it.second.isNotEmpty()) {
-                    if(it.second.size >= calendarCount * 0.9f) status = Color(0xff9e2222)
-                    else if(it.second.size >= calendarCount * 0.5f) status = Color(0xffd37808)
-                    else status = Color(0xffc1ae00)
+                    if(it.second.size >= calendarCount * 0.9f) status = colors.calendarred
+                    else if(it.second.size >= calendarCount * 0.5f) status = colors.calendarorange
+                    else status = colors.calendaryellow
                 }
                 CalendarCell(date = it.first, status = status, colors = it.second, onClick = { onClick(it.first) })
             }

@@ -8,10 +8,16 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -23,6 +29,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.importIcal
@@ -133,49 +142,75 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
             onResult(null)
         })
 
-    Button(onClick = { filePicker.launch("*/*") }) {
+    Button(onClick = { filePicker.launch("*/*")}) {
         Text("Add calendar from file")
     }
 }
 
 @Composable
-fun UrlCalendarImport(onResult: (Calendar?) -> Unit) {
+fun UrlCalendarImport(
+    onResult: (Calendar?) -> Unit,
+    onClose: () -> Unit
+) {
     var url by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        TextField(
-            value = url,
-            onValueChange = { url = it },
-            placeholder = { Text("Paste calendar URL") },
-            singleLine = true,
-            modifier = Modifier.weight(1f)
+    Box(
+        modifier = Modifier
+
+    ) {
+        CloseIconButton(
+            modifier = Modifier.size(32.dp).offset((-8).dp, (-8).dp),
+            onClick = onClose
+
         )
 
-        Spacer(Modifier.width(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
 
-        Button(
-            enabled = url.isNotBlank(),
-            onClick = {
-                scope.launch {
-                    try {
-                        val normalized = normalizeWebcalUrl(url)
-                        val input = withContext(Dispatchers.IO) {
-                            downloadIcs(normalized)
+        ) {
+            Text(
+                text = "Add new Calendar with URL or file",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = TextUnit(6.0f, TextUnitType.Em),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            TextField(
+                value = url,
+                onValueChange = { url = it },
+                placeholder = { Text("Paste calendar URL") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                enabled = url.isNotBlank(),
+                onClick = {
+                    scope.launch {
+                        try {
+                            val normalized = normalizeWebcalUrl(url)
+                            val input = withContext(Dispatchers.IO) {
+                                downloadIcs(normalized)
+                            }
+                            val calendar = importIcal(input)
+                            onResult(calendar)
+                            onClose()
+                        } catch (e: Exception) {
+                            Log.e("UrlCalendarImport", "Failed to import", e)
+                            onResult(null)
                         }
-
-
-                        val calendar = importIcal(input)
-
-                        onResult(calendar)
-                    } catch (e: Exception) {
-                        Log.e("UrlCalendarImport", "Failed to import", e)
-                        onResult(null)
                     }
                 }
+            ) {
+                Text("Import")
             }
-        ) {
-            Text("Import")
         }
     }
 }

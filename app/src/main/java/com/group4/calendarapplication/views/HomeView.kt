@@ -130,7 +130,6 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
                 .padding(20.dp),
             shape = RoundedCornerShape(16.dp),
         )  {
-            CloseIconButton(modifier = Modifier, onClick = onDismissRequest)
             Text(text = "Add new group", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
             Spacer(modifier = Modifier.size(5.dp))
             TextField(
@@ -200,32 +199,57 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             addCalender: (cal: Calendar) -> Unit
         ) {
             Dialog(onDismissRequest = onDismissRequest) {
+
+                val showHelp = remember { mutableStateOf(false) }
+
+                if (showHelp.value) {
+                    AddCalendarHelpDialog { showHelp.value = false }
+                }
+
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(5.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-
-                    ) {
-                        UrlCalendarImport(
-                            onResult = { calendar ->
-                                if (calendar != null) addCalender(calendar)
-                            },
-                            onClose = onDismissRequest
+                    Box {
+                        CloseIconButton(
+                            onClick = onDismissRequest,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(8.dp)
+                                .size(40.dp)
                         )
 
-                        Spacer(Modifier.height(16.dp))
-                        HorizontalDivider()
-                        Spacer(Modifier.height(16.dp))
+                        HelpIconButton(
+                            onClick = { showHelp.value = true },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .size(40.dp)
+                        )
 
-                        FileCalendarImport { calendar ->
-                            if (calendar != null) addCalender(calendar)
-                            onDismissRequest()
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                        ) {
+                            UrlCalendarImport(
+                                onResult = { calendar ->
+                                    if (calendar != null) addCalender(calendar)
+                                    onDismissRequest()
+                                },
+                                onClose = onDismissRequest
+                            )
+
+                            Spacer(Modifier.height(16.dp))
+                            HorizontalDivider()
+                            Spacer(Modifier.height(16.dp))
+
+                            FileCalendarImport { calendar ->
+                                if (calendar != null) addCalender(calendar)
+                                onDismissRequest()
+                            }
                         }
                     }
                 }
@@ -400,6 +424,24 @@ fun EditIcon(modifier: Modifier = Modifier) {
         )
     }
 }
+@Composable
+fun HelpIconButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(40.dp)
+
+    ) {
+        Text(
+            text = "?",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    }
+}
+
 
 @Composable
 fun DeleteIcon(modifier: Modifier = Modifier) {
@@ -511,6 +553,90 @@ fun ConfirmDialog(text: String, onSuccess: () -> Unit, onFail: () -> Unit) {
                 }
             }
             Spacer(modifier = Modifier.size(16.dp))
+        }
+    }
+}
+@Composable
+fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Box {
+
+                CloseIconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .padding(top = 32.dp)
+                ) {
+
+                    Text(
+                        "How to add a calendar",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Text(
+                        "You can add calendars using a URL, a ZIP file, or an .ics file.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        "Apple Calendar (URL)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        """
+                        1. Go to iCloud.com and sign in  
+                        2. Open the Calendar app  
+                        3. Click the information icon
+                        4. Enable Public Calendar  
+                        5. Copy the provided URL
+                        """.trimIndent(),
+
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    Text(
+                        "Google Calendar (file)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        """
+                        1. Open Google Calendar on a computer  
+                        2. Under “My calendars”, select the calendar  
+                        3. Open “Settings and sharing”  
+                        4. Find “Public address in iCal format”  
+                        5. Download the .ics file or zip file
+                        """.trimIndent(),
+
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+                    )
+                }
+            }
         }
     }
 }

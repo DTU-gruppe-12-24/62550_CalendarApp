@@ -67,6 +67,8 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
     var activeGroup by rememberSaveable { mutableIntStateOf(0) }
     if(activeGroup >= groups.size) activeGroup = -1
 
+    val calendars = if (activeGroup >= 0) groups[activeGroup].calendars else ArrayList()
+
     // Dialog popup
     val isDialogOpen = remember { mutableStateOf(false) }
     val dialogDate = remember { mutableStateOf(LocalDate.now()) }
@@ -79,7 +81,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             )  {
                 Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
                 Text("Occupied by:", modifier = Modifier.padding(10.dp))
-                groups[activeGroup].calendars.forEach { calendar ->
+                calendars.forEach { calendar ->
                     if (calendar.dates.any { event -> event.isDateTimeWithInEvent(dialogDate.value) }) {
                         CalendarLegend(calendar, Modifier.fillMaxWidth())
                     }
@@ -98,7 +100,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                     modifier = Modifier.fillMaxWidth(),
                     //verticalArrangement = Arrangement.Bottom
                 ) {
-                    groups[activeGroup].calendars.forEach { calendar ->
+                    calendars.forEach { calendar ->
                         CalendarLegend(calendar, Modifier.fillMaxWidth())
                     }
                 }
@@ -113,7 +115,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
             // Filters
             CalendarFilterBar(
-                calendars = groups[activeGroup].calendars
+                calendars = calendars
             )
 
             Spacer(modifier = Modifier.size(10.dp).weight(1f))

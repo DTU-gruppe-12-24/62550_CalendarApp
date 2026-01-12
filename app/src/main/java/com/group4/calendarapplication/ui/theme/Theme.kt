@@ -16,8 +16,7 @@ import androidx.compose.ui.graphics.Color
 data class CalendarColors(
     val calendargreen: Color,
     val calendarred: Color,
-    val calendaryellow: Color,
-    val calendarorange: Color
+    val calendaryellow: Color
 )
 
 
@@ -26,14 +25,12 @@ private val LightCalendarColors = CalendarColors(
     calendargreen = Green40,
     calendarred = Red40,
     calendaryellow = Yellow40,
-    calendarorange = Orange40
 )
 
 private val DarkCalendarColors = CalendarColors(
     calendargreen = Green80,
     calendarred = Red80,
-    calendaryellow = Yellow80,
-    calendarorange = Orange80
+    calendaryellow = Yellow80
 )
 
 val LocalCalendarColors = staticCompositionLocalOf<CalendarColors> {

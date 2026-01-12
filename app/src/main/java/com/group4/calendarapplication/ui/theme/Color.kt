@@ -10,8 +10,6 @@ val Green80 = Color(0xFF3A4938)
 
 val Red80 = Color(0xFF804646)
 
-val Orange80 = Color(0xFF7A593F)
-
 val Yellow80 = Color(0xFF696549)
 
 val Purple40 = Color(0xFF6650a4)
@@ -21,7 +19,5 @@ val Pink40 = Color(0xFF7D5260)
 val Green40 = Color(0xFF9FD794)
 
 val Red40 = Color(0xFFE18E8E)
-
-val Orange40 = Color(0xFFDEB589)
 
 val Yellow40 = Color(0xFFE7DFA3)

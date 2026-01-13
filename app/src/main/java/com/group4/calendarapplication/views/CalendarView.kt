@@ -118,8 +118,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                                 )
                             }
                             Text(
-                                text = if (event.isAllDay) "All day"
-                                else "${event.start.format(timeFormat)} - ${event.end.format(timeFormat)}",
+                                text = event.getDisplayTextForDate(dialogDate.value),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

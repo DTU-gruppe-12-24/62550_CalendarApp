@@ -12,6 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 data class CalendarColors(
     val calendargreen: Color,
@@ -58,6 +59,7 @@ private val LightColorScheme = lightColorScheme(
     onSurface = Color(0xFF1C1B1F),
     */
 )
+
 @Composable
 fun CalendarApplicationTheme(
     darkTheme: Boolean? = null,
@@ -75,6 +77,12 @@ fun CalendarApplicationTheme(
         isDark -> DarkColorScheme
         else -> LightColorScheme
     }
+
+    val systemUiController = rememberSystemUiController()
+    systemUiController.setSystemBarsColor(
+        color = colorScheme.surfaceDim,
+        darkIcons = !isDark,
+    )
 
     val calendarColors =
         if (isDark) DarkCalendarColors else LightCalendarColors

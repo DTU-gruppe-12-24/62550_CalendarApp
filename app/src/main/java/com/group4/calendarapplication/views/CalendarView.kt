@@ -69,6 +69,10 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
     val calendars = if (activeGroup >= 0) groups[activeGroup].calendars else ArrayList()
 
+    // Error message
+    val errorMessage = remember { mutableStateOf(if (activeGroup < 0) "Create a calendar group and add calendars before being able to view the calendar." else null)}
+    if (errorMessage.value != null) ErrorMessage(errorMessage.value ?: "Unknown error") { errorMessage.value = null }
+
     // Dialog popup
     val isDialogOpen = remember { mutableStateOf(false) }
     val dialogDate = remember { mutableStateOf(LocalDate.now()) }

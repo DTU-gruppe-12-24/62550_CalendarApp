@@ -405,7 +405,6 @@ private fun CalendarGrid(
                 var status = colors.calendargreen
                 if(it.second.isNotEmpty()) {
                     if(it.second.size >= calendarCount * 0.9f) status = colors.calendarred
-                    else if(it.second.size >= calendarCount * 0.5f) status = colors.calendarorange
                     else status = colors.calendaryellow
                 }
                 CalendarCell(date = it.first, status = status, colors = it.second, onClick = { onClick(it.first) })

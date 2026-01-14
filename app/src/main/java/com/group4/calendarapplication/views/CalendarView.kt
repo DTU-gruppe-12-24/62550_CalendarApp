@@ -37,12 +37,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
@@ -54,36 +55,59 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
+import com.group4.calendarapplication.viewmodel.CalendarViewModel
 import com.group4.calendarapplication.ui.theme.LocalCalendarColors
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
+import kotlin.collections.map
 
 @Composable
 fun CalendarView(groups: List<Group>, modifier: Modifier) {
+    val viewModel: CalendarViewModel = viewModel()
+
+    LaunchedEffect(groups) {
+        viewModel.setGroups(groups)
+    }
+
+    val filterQuery by viewModel.filterQuery.collectAsState()
+    val availability by viewModel.dayAvailability.collectAsState()
+
     var activeGroup by rememberSaveable { mutableIntStateOf(0) }
-    if(activeGroup >= groups.size) activeGroup = -1
+    if (activeGroup >= groups.size) activeGroup = -1
 
     val calendars = if (activeGroup >= 0) groups[activeGroup].calendars else ArrayList()
 
     // Dialog popup
     val isDialogOpen = remember { mutableStateOf(false) }
     val dialogDate = remember { mutableStateOf(LocalDate.now()) }
-    if(isDialogOpen.value && groups.size > activeGroup) {
+
+    if (isDialogOpen.value && groups.size > activeGroup && activeGroup != -1) {
         Dialog(onDismissRequest = { isDialogOpen.value = false }) {
             Card(
                 modifier = Modifier
                     .height(200.dp),
                 shape = RoundedCornerShape(16.dp),
-            )  {
-                Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
-                Text("Occupied by:", modifier = Modifier.padding(10.dp))
-                calendars.forEach { calendar ->
-                    if (calendar.dates.any { event -> event.isDateTimeWithInEvent(dialogDate.value) }) {
-                        CalendarLegend(calendar, Modifier.fillMaxWidth())
+            ) {
+                Column {
+                    Text(
+                        dialogDate.value.toString(),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Text("Occupied by:", modifier = Modifier.padding(10.dp))
+
+                    groups[activeGroup].calendars.forEach { calendar ->
+                        if (
+                            calendar.dates.any { event ->
+                                event.isDateTimeWithInEvent(dialogDate.value)
+                            }
+                        ) {
+                            CalendarLegend(calendar, Modifier.fillMaxWidth())
+                        }
                     }
                 }
             }
@@ -107,21 +131,31 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             }
 
             // Calendar
-            CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
-                isDialogOpen.value = true
-                dialogDate.value = date
-            }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp))
+            CalendarComponent(
+                group = groups.getOrNull(activeGroup),
+                availability = availability,
+                onDateClick = { date ->
+                    isDialogOpen.value = true
+                    dialogDate.value = date
+                }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+            )
 
 
             // Filters
-            CalendarFilterBar(
-                calendars = calendars
-            )
+            if (activeGroup != -1) {
+                CalendarFilterBar(
+                    calendars = groups[activeGroup].calendars,
+                    filterQuery = filterQuery,
+                    onFilterChange = { newQuery ->
+                        viewModel.updateFilter(newQuery)
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.size(10.dp).weight(1f))
 
             // Group selector
-            if(groups.isNotEmpty()) {
+            if (groups.isNotEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxWidth()
                         .align(Alignment.CenterHorizontally)
@@ -132,45 +166,61 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
                 ) {
                     val expanded = remember { mutableStateOf(false) }
+                }
+            }
+        }
 
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                            .clickable(onClick = { expanded.value = true })
-                    ) {
-                        Text(
-                            text = groups[activeGroup].name,
-                            textAlign = TextAlign.Center
-                        )
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            "Select active calendar group",
-                        )
-                    }
+        // Group selector
+        if (groups.isNotEmpty() && activeGroup != -1) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally)
+                    .background(color = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                val expanded = remember { mutableStateOf(false) }
 
-                    DropdownMenu(
-                        expanded = expanded.value,
-                        onDismissRequest = { expanded.value = false },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.Center)
-                            .background(color = MaterialTheme.colorScheme.secondaryContainer)
-                    ) {
-                        for (i in 0..<groups.size) {
-                            DropdownMenuItem(
-                                text = { Text(text = groups[i].name) },
-                                onClick = {
-                                    activeGroup = i
-                                    expanded.value = false
-                                }
-                            )
-                        }
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .clickable(onClick = { expanded.value = true })
+                ) {
+                    Text(
+                        text = groups[activeGroup].name,
+                        textAlign = TextAlign.Center
+                    )
+                    Icon(
+                        Icons.Default.ArrowDropDown,
+                        contentDescription = "Select active calendar group"
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = expanded.value,
+                    onDismissRequest = { expanded.value = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.Center)
+                        .background(color = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    for (i in groups.indices) {
+                        DropdownMenuItem(
+                            text = { Text(text = groups[i].name) },
+                            onClick = {
+                                activeGroup = i
+                                expanded.value = false
+                            }
+                        )
                     }
                 }
             }
         }
     }
 }
+
+
 
 @Composable
 fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
@@ -200,6 +250,7 @@ fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
 @Composable
 fun CalendarComponent(
     group: Group?,
+    availability: Map<LocalDate, Boolean>,
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -243,7 +294,7 @@ fun CalendarComponent(
             }
             IconButton(
                 onClick = { current = current.plusMonths(1) },
-                modifier = Modifier.align(Alignment.CenterEnd),
+                modifier = Modifier.align(Alignment.CenterEnd)
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowForward,
@@ -255,7 +306,7 @@ fun CalendarComponent(
                 text = current.format(DateTimeFormatter.ofPattern("MMMM y")),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.align(Alignment.Center),
+                modifier = Modifier.align(Alignment.Center)
             )
         }
         Box(modifier = Modifier.fillMaxWidth()) {
@@ -270,9 +321,10 @@ fun CalendarComponent(
             }
         }
         CalendarGrid(
-            date = occupiedDates.toList(),
+            date = occupiedDates,
             calendarCount = group?.calendars?.size ?: 0,
             onClick = onDateClick,
+            availability = availability,
             modifier = Modifier
                 .wrapContentHeight()
                 .padding(top = 16.dp)
@@ -353,6 +405,7 @@ private fun CalendarGrid(
     calendarCount: Int,
     onClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
+    availability: Map<LocalDate, Boolean>,
 ) {
     val horizontalGap = with(LocalDensity.current) { 2.dp.roundToPx() }
     val verticalGap = with(LocalDensity.current) { 2.dp.roundToPx() }
@@ -401,13 +454,33 @@ private fun CalendarGrid(
                         )
                     }
                 }
-                val colors = LocalCalendarColors.current
-                var status = colors.calendargreen
-                if(it.second.isNotEmpty()) {
-                    if(it.second.size >= calendarCount * 0.9f) status = colors.calendarred
-                    else status = colors.calendaryellow
+
+                // Determine if filters are currently active
+                val isFilterApplied = availability.isNotEmpty()
+
+                val date = it.first
+                val events = it.second
+
+                val status = if (isFilterApplied) {
+                    // Filter Mode: Only Green or Gray
+                    val isAvailable = availability[date] ?: false
+                    if (isAvailable) Color(0xFF4CAF50) else Color(0xFFBDBDBD)
+                } else {
+                    // Default Mode: Red, Yellow Green
+                    val colors = LocalCalendarColors.current
+                    when {
+                        events.isEmpty() -> colors.calendargreen
+                        events.size >= calendarCount * 0.9f -> colors.calendarred
+                        else -> colors.calendaryellow
+                    }
                 }
-                CalendarCell(date = it.first, status = status, colors = it.second, onClick = { onClick(it.first) })
+
+                CalendarCell(
+                    date = date,
+                    status = status,
+                    colors = events,
+                    onClick = { onClick(date) }
+                )
             }
         },
         modifier = modifier,
@@ -415,8 +488,9 @@ private fun CalendarGrid(
         val totalWidthWithoutGap = constraints.maxWidth - (horizontalGap * 7)
         val singleWidth = totalWidthWithoutGap / 8
 
-        val xPos: MutableList<Int> = mutableListOf()
-        val yPos: MutableList<Int> = mutableListOf()
+        val xPos = mutableListOf<Int>()
+        val yPos = mutableListOf<Int>()
+
         var currentX = 0
         var currentY = 0
         measurables.forEach { _ ->
@@ -430,18 +504,25 @@ private fun CalendarGrid(
             }
         }
 
-        val placeables: List<Placeable> = measurables.map { measurable ->
-            measurable.measure(constraints.copy(minHeight = 0, maxHeight = singleWidth, minWidth = 0, maxWidth = singleWidth))
+        val placeables = measurables.map {
+            it.measure(
+                constraints.copy(
+                    minHeight = 0,
+                    maxHeight = singleWidth,
+                    minWidth = 0,
+                    maxWidth = singleWidth
+                )
+            )
         }
 
         layout(
             width = constraints.maxWidth,
-            height = currentY + singleWidth + verticalGap,
+            height = currentY + singleWidth + verticalGap
         ) {
             placeables.forEachIndexed { index, placeable ->
                 placeable.placeRelative(
                     x = xPos[index],
-                    y = yPos[index],
+                    y = yPos[index]
                 )
             }
         }

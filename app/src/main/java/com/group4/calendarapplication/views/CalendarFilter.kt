@@ -1,79 +1,56 @@
 package com.group4.calendarapplication.views
 
-import androidx.compose.foundation.background
+import android.app.TimePickerDialog
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.group4.calendarapplication.domain.filter.FilterQuery
 import com.group4.calendarapplication.models.Calendar
 import java.time.DayOfWeek
-
 
 @Composable
 fun CalendarFilterBar(
     calendars: List<Calendar>,
-    modifier: Modifier = Modifier
+    filterQuery: FilterQuery,
+    onFilterChange: (FilterQuery) -> Unit
 ) {
     var showParticipants by remember { mutableStateOf(false) }
-    var showTimeFilter by remember { mutableStateOf(false) }
+    var showTime by remember { mutableStateOf(false) }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        elevation = CardDefaults.cardElevation(6.dp),
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Filters", style = MaterialTheme.typography.titleMedium)
 
-            Text(
-                text = "Filters",
-                style = MaterialTheme.typography.titleMedium
-            )
+                // Show "Clear" only if filters are actually set
+                if (filterQuery.isActive) {
+                    TextButton(onClick = { onFilterChange(FilterQuery()) }) {
+                        Text("Clear All", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    label = "Participants",
-                    onClick = { showParticipants = true }
-                )
 
-                FilterChip(
-                    label = "Time & days",
-                    onClick = { showTimeFilter = true }
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterButton("Participants") { showParticipants = true }
+                FilterButton("Time & days") { showTime = true }
             }
         }
     }
@@ -81,260 +58,194 @@ fun CalendarFilterBar(
     if (showParticipants) {
         ParticipantSelectorDialog(
             calendars = calendars,
+            selected = filterQuery.requiredCalendars,
+            onConfirm = {
+                onFilterChange(filterQuery.copy(requiredCalendars = it))
+                showParticipants = false
+            },
             onDismiss = { showParticipants = false }
         )
     }
 
-    if (showTimeFilter) {
+    if (showTime) {
         TimeAndWeekdaySelectorDialog(
-            onDismiss = { showTimeFilter = false }
+            filterQuery = filterQuery,
+            onApply = {
+                onFilterChange(it)
+                showTime = false
+            },
+            onDismiss = { showTime = false }
         )
     }
 }
-
-
 
 @Composable
-fun FilterChip(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        ),
+private fun FilterButton(text: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(50),
-        elevation = CardDefaults.cardElevation(2.dp)
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 3.dp
     ) {
         Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            style = MaterialTheme.typography.labelMedium
+            text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
         )
     }
 }
-
 
 @Composable
 fun ParticipantSelectorDialog(
     calendars: List<Calendar>,
+    selected: Set<Calendar>, // Changed from Set<String>
+    onConfirm: (Set<Calendar>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selected by remember { mutableStateOf(calendars.toSet()) }
+    var localSelected by remember { mutableStateOf(selected) }
+    val allSelected = localSelected.size == calendars.size && calendars.isNotEmpty()
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Card(shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(16.dp)) {
-
-                Text(
-                    text = "Participants",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                calendars.forEach { calendar ->
-                    ParticipantRow(
-                        calendar = calendar,
-                        selected = calendar in selected,
-                        onClick = {
-                            selected =
-                                if (calendar in selected)
-                                    selected - calendar
-                                else
-                                    selected + calendar
-                        }
-                    )
-                    Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Participants", style = MaterialTheme.typography.titleLarge)
+                    TextButton(onClick = {
+                        localSelected = if (allSelected) emptySet() else calendars.toSet()
+                    }) {
+                        Text(if (allSelected) "Deselect All" else "Select All")
+                    }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                Divider(Modifier.padding(vertical = 8.dp))
+
+                Column(
+                    Modifier.fillMaxWidth()
+                        .weight(1f, fill = false) // Allow scrolling if list is long
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Done")
+                    calendars.forEach { calendar ->
+                        val isSelected = calendar in localSelected
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    localSelected = if (isSelected) localSelected - calendar
+                                    else localSelected + calendar
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = isSelected, onCheckedChange = null)
+                            Box(Modifier.weight(1f)) {
+                                CalendarLegend(calendar, Modifier.fillMaxWidth())
+                            }
+                        }
                     }
+                }
+
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { onConfirm(localSelected) }) { Text("Confirm") }
                 }
             }
         }
     }
 }
 
-
-
-@Composable
-private fun ParticipantRow(
-    calendar: Calendar,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (selected)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                else Color.Transparent
-            )
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Card(
-            shape = CircleShape,
-            modifier = Modifier.size(14.dp),
-            colors = CardDefaults.cardColors(calendar.color),
-        ) {}
-
-        Text(
-            text = calendar.name,
-            modifier = Modifier.padding(start = 8.dp).weight(1f)
-        )
-
-        if (selected) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
-
-
-
-
-
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TimeAndWeekdaySelectorDialog(
+    filterQuery: FilterQuery,
+    onApply: (FilterQuery) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    var localQuery by remember { mutableStateOf(filterQuery) }
+    var startMinutes by remember { mutableStateOf(filterQuery.timeWindow?.start ?: (9 * 60)) }
+    var endMinutes by remember { mutableStateOf(filterQuery.timeWindow?.endInclusive ?: (17 * 60)) }
+    var duration by remember { mutableStateOf(filterQuery.minDurationMinutes?.toString() ?: "") }
+
+    fun showNativePicker(isStart: Boolean) {
+        val initialTotal = if (isStart) startMinutes else endMinutes
+        TimePickerDialog(context, { _, hour, minute ->
+            val total = hour * 60 + minute
+            if (isStart) startMinutes = total else endMinutes = total
+        }, initialTotal / 60, initialTotal % 60, true).show()
+    }
+
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    "Availability filter",
-                    style = MaterialTheme.typography.titleMedium
-                )
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Text("Availability Settings", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(16.dp))
 
-                WeekdaySelector()
-
-                TimeIntervalSection(
-                    label = "Time interval",
-                    start = "18:00",
-                    end = "24:00"
-                )
-
-                DurationSection(
-                    duration = "2 hours"
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Done")
+                WeekdaySelector(
+                    selected = localQuery.weekdays,
+                    onToggle = { day ->
+                        val newDays = if (day in localQuery.weekdays)
+                            localQuery.weekdays - day else localQuery.weekdays + day
+                        localQuery = localQuery.copy(weekdays = newDays)
                     }
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { showNativePicker(true) }, modifier = Modifier.weight(1f)) {
+                        Text("From: ${startMinutes.toTimeString()}")
+                    }
+                    OutlinedButton(onClick = { showNativePicker(false) }, modifier = Modifier.weight(1f)) {
+                        Text("To: ${endMinutes.toTimeString()}")
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = duration,
+                    onValueChange = { duration = it },
+                    label = { Text("Min duration (mins)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = {
+                        onApply(localQuery.copy(
+                            timeWindow = startMinutes..endMinutes,
+                            minDurationMinutes = duration.toIntOrNull()
+                        ))
+                    }) { Text("Apply") }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DurationSection(
-    duration: String,
-    onClick: () -> Unit = { /* Implementation */ }
-) {
-    Column {
-        Text("Minimum duration", style = MaterialTheme.typography.labelMedium)
-
-        Spacer(Modifier.height(6.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .clickable { onClick() }
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(duration)
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-        }
-    }
-}
-
-
-@Composable
-fun WeekdaySelector(
-    selected: Set<DayOfWeek> = emptySet(),
-    onToggle: (DayOfWeek) -> Unit = { /* Implementation */}
-) {
+private fun WeekdaySelector(selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         DayOfWeek.entries.forEach { day ->
+            val isSelected = day in selected
             FilterChip(
-                selected = day in selected,
+                selected = isSelected,
                 onClick = { onToggle(day) },
-                label = {
-                    Text(
-                        text = day.name.take(3).lowercase()
-                            .replaceFirstChar { it.uppercase() }
-                    )
-                }
+                label = { Text(day.name.take(3)) }
             )
         }
     }
 }
-@Composable
-fun TimeIntervalSection(
-    label: String,
-    start: String,
-    end: String,
-    onClick: () -> Unit =  { /* Implementation */ }
-) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelMedium)
 
-        Spacer(Modifier.height(6.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .clickable { onClick() }
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(start)
-            Text("–")
-            Text(end)
-        }
-    }
-}
+private fun Int.toTimeString(): String = "%02d:%02d".format(this / 60, this % 60)

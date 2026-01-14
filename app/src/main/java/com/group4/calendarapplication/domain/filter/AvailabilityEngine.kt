@@ -16,10 +16,12 @@ class AvailabilityEngine {
             return false
         }
 
-        val window = query.timeWindow ?: return true
-        val minDuration = query.minDurationMinutes ?: 0
+        // Setup Window and Duration
+        // Cap duration at 24 hours (1440 mins) to prevent multi-day logic bugs
+        val minDuration = query.minDurationMinutes?.coerceAtMost(1440) ?: 1
+        val window = query.timeWindow ?: (0..1440)
 
-        // Filter calendars to only those required by the user
+        // Filter Participants
         // If query.requiredCalendars is empty, we assume all calendars in the group are required
         val relevantCalendars = if (query.requiredCalendars.isNotEmpty()) {
             query.requiredCalendars
@@ -27,53 +29,56 @@ class AvailabilityEngine {
             calendars.toSet()
         }
 
-        // Get blocking events ONLY for the relevant people
+        // Collect blocks for THIS date
         val blockingEvents = relevantCalendars
-            .flatMap { cal -> cal.dates }
-            .filter { event ->
-                // Ensure the event actually occurs on the requested date
-                event.start.toLocalDate() == date || event.end.toLocalDate() == date
-            }
-            .map { it.toMinuteRange() }
-            .filter { it.start < window.endInclusive && it.endInclusive > window.start }
+            .flatMap { it.dates }
+            .mapNotNull { event -> getMinuteRangeForDate(event, date) }
+            .filter { it.first < window.endInclusive && it.last > window.start }
 
-        // Calculate gaps
-        val freeIntervals = subtractIntervals(window, blockingEvents)
+        // Calculate free gaps within the user's specific Time Window
+        val freeIntervals = calculateFreeGaps(window, blockingEvents)
 
         // Check if any gap is large enough
-        return freeIntervals.any { (it.endInclusive - it.start) >= minDuration }
+        return freeIntervals.any { (it.last - it.first) >= minDuration }
     }
 
-    private fun Event.toMinuteRange(): IntRange {
-        val s = start.hour * 60 + start.minute
-        val e = end.hour * 60 + end.minute
-        return s..e
+    private fun getMinuteRangeForDate(event: Event, date: LocalDate): IntRange? {
+        val eventStart = event.start.toLocalDate()
+        val eventEnd = event.end.toLocalDate()
+
+        if (eventStart > date || eventEnd < date) return null
+
+        // Start minute: 0 if started before today, else actual time
+        val startMin = if (eventStart < date) 0
+        else event.start.hour * 60 + event.start.minute
+
+        // End minute: 1440 if ends after today, else actual time
+        val endMin = if (eventEnd > date) 1440
+        else event.end.hour * 60 + event.end.minute
+
+        return if (startMin < endMin) startMin..endMin else null
     }
 
-    private fun subtractIntervals(
+    private fun calculateFreeGaps(
         window: ClosedRange<Int>,
-        occupied: List<ClosedRange<Int>>
+        occupied: List<IntRange>
     ): List<IntRange> {
-        val result = mutableListOf<IntRange>()
-
-        val sortedOccupied = occupied
-            .map { maxOf(it.start, window.start)..minOf(it.endInclusive, window.endInclusive) }
-            .filter { it.start < it.endInclusive }
-            .sortedBy { it.start }
-
-        var currentStart = window.start
+        val gaps = mutableListOf<IntRange>()
+        val sortedOccupied = occupied.sortedBy { it.first }
+        var currentPointer = window.start
 
         for (block in sortedOccupied) {
-            if (block.start > currentStart) {
-                result.add(currentStart..block.start)
+            if (block.last <= currentPointer) continue
+            if (block.first > currentPointer) {
+                gaps.add(currentPointer..block.first)
             }
-            currentStart = maxOf(currentStart, block.endInclusive)
+            currentPointer = maxOf(currentPointer, block.last)
+            if (currentPointer >= window.endInclusive) break
         }
 
-        if (currentStart < window.endInclusive) {
-            result.add(currentStart..window.endInclusive)
+        if (currentPointer < window.endInclusive) {
+            gaps.add(currentPointer..window.endInclusive)
         }
-
-        return result
+        return gaps
     }
 }

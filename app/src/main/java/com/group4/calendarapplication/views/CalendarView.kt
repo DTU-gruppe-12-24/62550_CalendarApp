@@ -41,7 +41,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.Layout
@@ -49,16 +48,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.group4.calendarapplication.models.Calendar
-import com.group4.calendarapplication.models.Event
 import com.group4.calendarapplication.models.Group
 import com.group4.calendarapplication.viewmodel.CalendarViewModel
 import com.group4.calendarapplication.ui.theme.LocalCalendarColors
@@ -68,10 +64,6 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import kotlin.collections.map
 
-
-val Event.isAllDay: Boolean
-    get() = start.toLocalTime() == java.time.LocalTime.MIDNIGHT && end.toLocalTime() == java.time.LocalTime.MIDNIGHT
-val timeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
 fun CalendarView(groups: List<Group>, modifier: Modifier) {
@@ -84,9 +76,10 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
     val filterQuery by viewModel.filterQuery.collectAsState()
     val availability by viewModel.dayAvailability.collectAsState()
 
-    var activeGroup by rememberSaveable { mutableIntStateOf(0) }
-    if (activeGroup >= groups.size) activeGroup = -1
+    val activeGroupIndex by viewModel.activeGroupIndex.collectAsState()
+    val selectedMonth by viewModel.selectedMonth.collectAsState()
 
+    val activeGroup = if (activeGroupIndex in groups.indices) activeGroupIndex else -1
     val calendars = if (activeGroup >= 0) groups[activeGroup].calendars else ArrayList()
 
     // Dialog popup
@@ -162,6 +155,8 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             // Calendar
             CalendarComponent(
                 group = groups.getOrNull(activeGroup),
+                currentMonth = selectedMonth,
+                onMonthChange = { viewModel.updateMonth(it) },
                 availability = availability,
                 onDateClick = { date ->
                     isDialogOpen.value = true
@@ -184,64 +179,49 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             Spacer(modifier = Modifier.size(10.dp).weight(1f))
 
             // Group selector
-            if (groups.isNotEmpty()) {
+            if (groups.isNotEmpty() && activeGroup != -1) {
                 Box(
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .align(Alignment.CenterHorizontally)
-                        .background(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                        )
-                        .padding(12.dp)
-
-                ) {
-                    val expanded = remember { mutableStateOf(false) }
-                }
-            }
-        }
-
-        // Group selector
-        if (groups.isNotEmpty() && activeGroup != -1) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.CenterHorizontally)
-                    .background(color = MaterialTheme.colorScheme.secondaryContainer)
-            ) {
-                val expanded = remember { mutableStateOf(false) }
-
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .clickable(onClick = { expanded.value = true })
-                ) {
-                    Text(
-                        text = groups[activeGroup].name,
-                        textAlign = TextAlign.Center
-                    )
-                    Icon(
-                        Icons.Default.ArrowDropDown,
-                        contentDescription = "Select active calendar group"
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = expanded.value,
-                    onDismissRequest = { expanded.value = false },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center)
                         .background(color = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
-                    for (i in groups.indices) {
-                        DropdownMenuItem(
-                            text = { Text(text = groups[i].name) },
-                            onClick = {
-                                activeGroup = i
-                                expanded.value = false
-                            }
+                    val expanded = remember { mutableStateOf(false) }
+
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .clickable(onClick = { expanded.value = true })
+                    ) {
+                        Text(
+                            text = groups[activeGroup].name,
+                            textAlign = TextAlign.Center
                         )
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "Select active calendar group"
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded.value,
+                        onDismissRequest = { expanded.value = false },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.Center)
+                            .background(color = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        for (i in groups.indices) {
+                            DropdownMenuItem(
+                                text = { Text(text = groups[i].name) },
+                                onClick = {
+                                    viewModel.updateActiveGroup(i)
+                                    expanded.value = false
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -279,12 +259,13 @@ fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
 @Composable
 fun CalendarComponent(
     group: Group?,
+    currentMonth: LocalDate,
+    onMonthChange: (LocalDate) -> Unit,
     availability: Map<LocalDate, Boolean>,
     onDateClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var current by rememberSaveable { mutableStateOf(LocalDate.now()) }
-    val datesInCurrentMonth = getDatesInMonth(current)
+    val datesInCurrentMonth = getDatesInMonth(currentMonth)
     val occupiedDates = datesInCurrentMonth.map { date ->
         val colors = ArrayList<Color>()
         if(group != null)
@@ -301,11 +282,11 @@ fun CalendarComponent(
         state = rememberDraggableState { delta ->
             combinedSwipeDelta.floatValue += delta
             if(combinedSwipeDelta.floatValue > 250.0f) {
-                current = current.minusMonths(1) // Go to previous month
+                onMonthChange(currentMonth.minusMonths(1))// Go to previous month
                 combinedSwipeDelta.floatValue = -100.0f
             }
             else if(combinedSwipeDelta.floatValue < -250.0f) {
-                current = current.plusMonths(1) // Go to next month
+                onMonthChange(currentMonth.plusMonths(1))// Go to previous month
                 combinedSwipeDelta.floatValue = 100.0f
             }
         },
@@ -313,7 +294,7 @@ fun CalendarComponent(
     )) {
         Box(modifier = Modifier.fillMaxWidth()) {
             IconButton(
-                onClick = { current = current.minusMonths(1) },
+                onClick = { onMonthChange(currentMonth.minusMonths(1)) },
                 modifier = Modifier.align(Alignment.CenterStart),
             ) {
                 Icon(
@@ -322,7 +303,7 @@ fun CalendarComponent(
                 )
             }
             IconButton(
-                onClick = { current = current.plusMonths(1) },
+                onClick = { onMonthChange(currentMonth.plusMonths(1)) },
                 modifier = Modifier.align(Alignment.CenterEnd)
             ) {
                 Icon(
@@ -332,7 +313,7 @@ fun CalendarComponent(
             }
 
             Text(
-                text = current.format(DateTimeFormatter.ofPattern("MMMM y")),
+                text = currentMonth.format(DateTimeFormatter.ofPattern("MMMM y")),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.align(Alignment.Center)
@@ -340,7 +321,7 @@ fun CalendarComponent(
         }
         Box(modifier = Modifier.fillMaxWidth()) {
             IconButton(
-                onClick = { current = LocalDate.now() },
+                onClick = { onMonthChange(LocalDate.now()) },
                 modifier = Modifier.align(Alignment.BottomEnd)
             ) {
                 Icon(
@@ -560,7 +541,7 @@ private fun CalendarGrid(
 
 private fun LocalDate.formatToCalendarDay(): String = this.format(DateTimeFormatter.ofPattern("d"))
 private fun LocalDate.getDayOfWeek3Letters() : String = this.format(DateTimeFormatter.ofPattern("EEE"))
-private fun getDatesInMonth(month: LocalDate): List<LocalDate> {
+public fun getDatesInMonth(month: LocalDate): List<LocalDate> {
     val firstDayOfMonth = LocalDate.of(month.year, month.month, 1)
     val lastDayOfMonth = firstDayOfMonth.plusMonths(1)
     return List<LocalDate>(lastDayOfMonth.minusDays(1).dayOfMonth, init = { i -> firstDayOfMonth.plusDays(i.toLong())})

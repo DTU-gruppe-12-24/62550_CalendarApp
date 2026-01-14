@@ -24,6 +24,7 @@ import com.group4.calendarapplication.views.CalendarView
 import com.group4.calendarapplication.views.HomeView
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 
@@ -41,11 +42,10 @@ enum class Destination(
 fun NavHost(
     groups: List<Group>,
     navController: NavHostController,
+    navHistory: NavigationHistory,
     startDestination: Destination,
     modifier: Modifier = Modifier
 ) {
-    val navHistory = remember { NavigationHistory() }
-
     NavHost(
         navController,
         startDestination = startDestination.route
@@ -65,9 +65,7 @@ fun NavHost(
 }
 
 @Composable
-fun NavBar(navController: NavHostController) {
-    val navHistory = remember { NavigationHistory() }
-
+fun NavBar(navController: NavHostController, navHistory: NavigationHistory) {
     NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
         Destination.entries.forEach { destination ->
             NavigationBarItem(
@@ -89,8 +87,7 @@ fun NavBar(navController: NavHostController) {
 fun App(groups: List<Group>) {
     val navController = rememberNavController()
     val startDestination = Destination.HOME
-    val navHistory = remember { NavigationHistory() }
-
+    val navHistory = remember { NavigationHistory(startDestination.route) }
 
     AppBackHandler(navController)
 
@@ -107,11 +104,12 @@ fun App(groups: List<Group>) {
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding(),
-        bottomBar = { NavBar(navController) }
+        bottomBar = { NavBar(navController, navHistory) }
     ) { innerPadding ->
         NavHost(
             groups,
             navController,
+            navHistory,
             startDestination,
             modifier = Modifier.padding(innerPadding)
         )
@@ -125,6 +123,10 @@ fun AppBackHandler(navController: NavHostController) {
 }
 
 class NavigationHistory {
+    constructor(startItem: String) {
+        stack.add(startItem)
+    }
+
     val stack = mutableStateListOf<String>()
 
     fun push(route: String) {
@@ -133,7 +135,7 @@ class NavigationHistory {
 
     fun pop(): String? {
         if (stack.size > 1) {
-            stack.removeLast()
+            stack.removeAt(stack.lastIndex)
             return stack.last()
         }
         return null

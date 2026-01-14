@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.group4.calendarapplication.models.Calendar
+import com.group4.calendarapplication.models.Event
 import com.group4.calendarapplication.models.Group
 import com.group4.calendarapplication.viewmodel.CalendarViewModel
 import com.group4.calendarapplication.ui.theme.LocalCalendarColors
@@ -65,6 +67,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import kotlin.collections.map
+
+
+val Event.isAllDay: Boolean
+    get() = start.toLocalTime() == java.time.LocalTime.MIDNIGHT && end.toLocalTime() == java.time.LocalTime.MIDNIGHT
+val timeFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
 fun CalendarView(groups: List<Group>, modifier: Modifier) {
@@ -92,21 +99,43 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                 modifier = Modifier
                     .height(200.dp),
                 shape = RoundedCornerShape(16.dp),
-            ) {
-                Column {
-                    Text(
-                        dialogDate.value.toString(),
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                    Text("Occupied by:", modifier = Modifier.padding(10.dp))
+            )  {
+                Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
+                Text("Occupied by:", modifier = Modifier.padding(10.dp))
 
-                    groups[activeGroup].calendars.forEach { calendar ->
-                        if (
-                            calendar.dates.any { event ->
-                                event.isDateTimeWithInEvent(dialogDate.value)
-                            }
+                Spacer(Modifier.height(4.dp))
+
+                calendars.forEach { calendar ->
+                    val eventsOnDate = calendar.dates.filter { event ->
+                        event.isDateTimeWithInEvent(dialogDate.value)
+                    }
+
+                    eventsOnDate.forEach { event ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp, horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CalendarLegend(calendar, Modifier.fillMaxWidth())
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .background(calendar.color, shape = RoundedCornerShape(6.dp))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (calendar.name.length > 18) calendar.name.take(18) + "…" else calendar.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Text(
+                                text = event.getDisplayTextForDate(dialogDate.value),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

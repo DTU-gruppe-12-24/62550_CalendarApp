@@ -24,6 +24,28 @@ class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializ
         val startDate = start.plusMinutes(1).toLocalDate()
         return (startDate.isBefore(date) || startDate == date) && (endDate.isAfter(date) || endDate == date)
     }
+    fun getDisplayTextForDate(date: LocalDate): String {
+        val startDate = start.toLocalDate()
+        val endDate = end.toLocalDate()
+        val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
+
+        // Single-day event
+        if (startDate == endDate) {
+            if (start.toLocalTime() == java.time.LocalTime.MIDNIGHT &&
+                end.toLocalTime() == java.time.LocalTime.MIDNIGHT
+            ) {
+                return "All day"
+            }
+            return "${start.format(timeFormat)} - ${end.format(timeFormat)}"
+        }
+
+        return when (date) {
+            startDate -> "${start.format(timeFormat)} - 24:00"
+            endDate -> "00:00 - ${end.format(timeFormat)}"
+            else -> "All day"
+        }
+    }
+
 }
 
 @Serializable

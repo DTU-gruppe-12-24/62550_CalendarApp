@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -165,9 +166,21 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit, deleteGroup: () -> Unit) {
     val editMade = remember { mutableStateOf(false) }
+
+    val editCalendarIndex = remember { mutableIntStateOf(-1) }
+    if (editCalendarIndex.intValue >= 0) {
+        return EditCalendar(
+            calendar = group.calendars[editCalendarIndex.intValue],
+            modifier = modifier,
+            onExit = { editCalendarIndex.intValue = -1; },
+            onEdit = { calendar ->
+                group.calendars[editCalendarIndex.intValue] = calendar; editMade.value = true
+            }
+        )
+    }
+
     val editName = remember { mutableStateOf(false) }
     val colors = LocalCalendarColors.current
-    val mainActivity = LocalActivity.current as MainActivity
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.size(16.dp))
         val nameValue = remember { mutableStateOf(group.name) }
@@ -267,39 +280,11 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             }
         }
         for (i in 0..<group.calendars.size) {
-
-
-
-            /*
-            val name = remember { mutableStateOf("") }
-            Dialog(onDismissRequest = { onDismissRequest() }) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                )  {
-                    TextField(
-                        value = name.value,
-                        onValueChange = { v -> name.value = v },
-                        placeholder = { Text("Name of calendar") },
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                    Button(onClick = {
-                        // Temp: Randomize calendar dates and color
-                        val calendar = Calendar(name.value, color = Color(Random.nextInt(255),Random.nextInt(255),Random.nextInt(255),255), ArrayList())
-                        calendar.randomize(50)
-                        addCalender(calendar)
-                        onDismissRequest()
-                    }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        Text("Create calendar")
-                    }
-                }
-            }
-             */
             items.add({
-                Row(Modifier.fillMaxSize().padding(2.dp), Arrangement.SpaceBetween) {
+                Row(
+                    Modifier.fillMaxSize().padding(2.dp).clickable{ editCalendarIndex.intValue = i },
+                    Arrangement.SpaceBetween
+                ) {
                     CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
                     Box(Modifier.align(Alignment.CenterVertically).clickable { calendarDeleteIndex.intValue = i; confirmCalendarDelete.value = true }) {
                         DeleteIcon(Modifier.align(Alignment.CenterEnd))
@@ -389,7 +374,105 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
     }
 }
 
+@Composable
+fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onEdit: (calendar: Calendar) -> Unit) {
+    val editMade = remember { mutableStateOf(false) }
 
+    val confirmCancel = remember { mutableStateOf(false) }
+    if (confirmCancel.value) ConfirmDialog(text = "Are you sure you want to exit without saving your changes?", onSuccess = { onExit(); confirmCancel.value = false } , onFail = { confirmCancel.value = false })
+    fun close() {
+        if (editMade.value) confirmCancel.value = true
+        else onExit()
+    }
+
+    val editName = remember { mutableStateOf(false) }
+    Column(modifier = modifier.fillMaxSize()) {
+        Spacer(modifier = Modifier.size(16.dp))
+        val nameValue = remember { mutableStateOf(calendar.name) }
+        Box(Modifier.fillMaxWidth()) {
+            CloseIconButton(
+                Modifier.size(32.dp).align(Alignment.TopStart).offset((-8).dp, 0.dp),
+                onClick = { close() }
+            )
+        }
+
+        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName.value = true })) {
+            if (!editName.value) {
+                Text(text = calendar.name, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
+                EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
+            } else {
+                TextField(
+                    value = nameValue.value,
+                    onValueChange = { v ->
+                        if (v.endsWith("\n")) editName.value = false
+                        nameValue.value = v.replace("\n", "")
+                        calendar.name = v.replace("\n", "")
+                        editMade.value = true
+                    },
+                    modifier = Modifier.align(Alignment.Center),
+                    textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
+                )
+                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName.value = false })
+            }
+        }
+        Spacer(modifier = Modifier.size(32.dp))
+
+        val editColorDialog = remember { mutableStateOf(false) }
+        Row(Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.8f).height(64.dp), horizontalArrangement = Arrangement.Center) {
+            Text(text = "Color: ", modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(5.0f,TextUnitType.Em))
+            Box(Modifier.fillMaxHeight().aspectRatio(1.0f).background(color = calendar.color, shape = CircleShape).padding(16.dp, 2.dp).clickable{ editColorDialog.value = true }) {}
+        }
+        if (editColorDialog.value) {
+            Dialog({ editColorDialog.value = false }) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.7f)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    ColorPicker(calendar.color, onEdit = { color -> calendar.color = color; editMade.value = true }, onExit = { editColorDialog.value = false })
+                }
+            }
+        }
+
+
+        Spacer(modifier = Modifier.size(10.dp))
+        Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
+        ) {
+            Button(
+                onClick = {
+                    calendar.name = nameValue.value
+                    onEdit(calendar)
+                    onExit()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) {
+                SaveIcon(Modifier.size(24.dp))
+                Text("Save")
+            }
+
+            Button(
+                onClick = { close() },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) {
+                CloseIcon(Modifier.size(24.dp))
+                Text("Cancel")
+            }
+
+        }
+    }
+}
 
 
 @Composable

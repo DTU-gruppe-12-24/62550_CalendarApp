@@ -217,10 +217,13 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
 
         val items = ArrayList<@Composable () -> Unit>()
 
+        val errorMessage = remember { mutableStateOf(null as String?)}
+        if (errorMessage.value != null) ErrorMessage(errorMessage.value ?: "Unknown error") { errorMessage.value = null }
+
         @Composable
         fun AddCalendarDialog(
             onDismissRequest: () -> Unit,
-            addCalender: (cal: Calendar) -> Unit
+            addCalender: (cal: Calendar) -> Unit,
         ) {
             Dialog(onDismissRequest = onDismissRequest) {
 
@@ -263,6 +266,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                                     if (calendar != null) addCalender(calendar)
                                     onDismissRequest()
                                 },
+                                onError = { msg -> errorMessage.value = msg },
                                 onClose = onDismissRequest
                             )
 
@@ -270,10 +274,13 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                             HorizontalDivider()
                             Spacer(Modifier.height(16.dp))
 
-                            FileCalendarImport { calendar ->
-                                if (calendar != null) addCalender(calendar)
-                                onDismissRequest()
-                            }
+                            FileCalendarImport(
+                                onResult = { calendar ->
+                                    if (calendar != null) addCalender(calendar)
+                                    onDismissRequest()
+                                },
+                                onError = { msg -> errorMessage.value = msg }
+                            )
                         }
                     }
                 }

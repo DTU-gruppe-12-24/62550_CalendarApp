@@ -1,5 +1,6 @@
 package com.group4.calendarapplication.views
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,7 +66,17 @@ fun HomeView(groups: List<Group>, modifier: Modifier) {
     } else {
         val (group, setGroup) = rememberSaveable { mutableStateOf(groups[currentGroup]) }
 
-        EditGroup(Group(group.name, group.calendars), modifier,
+        BackHandler(enabled = true) {
+            if (group.calendars.isNotEmpty()) {
+                currentGroup = -1
+            } else {
+                currentGroup = -1
+            }
+        }
+
+        EditGroup(
+            Group(group.name, group.calendars),
+            modifier,
             onExit = { currentGroup = -1 },
             onEdit = { g ->
                 setGroup(g)

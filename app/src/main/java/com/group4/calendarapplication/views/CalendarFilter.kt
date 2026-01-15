@@ -67,8 +67,9 @@ fun CalendarFilterBar(
             selected = filterQuery.requiredCalendars,
             onConfirm = {
                 onFilterChange(filterQuery.copy(requiredCalendars = it))
+                showParticipants = false
             },
-            onDismiss = { }
+            onDismiss = { showParticipants = false }
         )
     }
 
@@ -77,8 +78,9 @@ fun CalendarFilterBar(
             filterQuery = filterQuery,
             onApply = {
                 onFilterChange(it)
+                showTime = false
             },
-            onDismiss = { }
+            onDismiss = { showTime = false }
         )
     }
 }

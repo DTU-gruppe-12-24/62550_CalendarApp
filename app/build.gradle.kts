@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.colorpicker.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

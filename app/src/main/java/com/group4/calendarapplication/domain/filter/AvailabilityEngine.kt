@@ -29,7 +29,7 @@ class AvailabilityEngine {
             calendars.toSet()
         }
 
-        // Collect blocks for THIS date
+        // Collect blocks for this date
         val blockingEvents = relevantCalendars
             .flatMap { it.dates }
             .mapNotNull { event -> getMinuteRangeForDate(event, date) }

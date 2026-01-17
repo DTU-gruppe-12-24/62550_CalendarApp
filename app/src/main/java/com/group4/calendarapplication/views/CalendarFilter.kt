@@ -105,7 +105,7 @@ private fun FilterButton(text: String, onClick: () -> Unit) {
 @Composable
 fun ParticipantSelectorDialog(
     calendars: List<Calendar>,
-    selected: Set<Calendar>, // Changed from Set<String>
+    selected: Set<Calendar>,
     onConfirm: (Set<Calendar>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -174,13 +174,23 @@ fun TimeAndWeekdaySelectorDialog(
     var localQuery by remember { mutableStateOf(filterQuery) }
     var startMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.start ?: (9 * 60)) }
     var endMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.endInclusive ?: (17 * 60)) }
-    var durationAmount by remember { mutableStateOf(filterQuery.minDurationMinutes?.let {
-        if (it % 1440 == 0) (it / 1440).toString()
-        else if (it % 60 == 0) (it / 60).toString()
-        else it.toString()
-    } ?: "") }
+    val totalMinutes = filterQuery.minDurationMinutes ?: 0
 
-    var selectedUnit by remember { mutableStateOf(DurationUnit.MINUTES) }
+    // Determine unit and display amount based on stored totalMinutes
+    var selectedUnit by remember {
+        mutableStateOf(
+            if (totalMinutes > 0 && totalMinutes % 60 == 0) DurationUnit.HOURS
+            else DurationUnit.MINUTES
+        )
+    }
+
+    var durationAmount by remember {
+        mutableStateOf(
+            if (totalMinutes == 0) ""
+            else if (selectedUnit == DurationUnit.HOURS) (totalMinutes / 60).toString()
+            else totalMinutes.toString()
+        )
+    }
 
     fun showNativePicker(isStart: Boolean) {
         val initialTotal = if (isStart) startMinutes else endMinutes
@@ -198,10 +208,10 @@ fun TimeAndWeekdaySelectorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
-                Text("Search Parameters", style = MaterialTheme.typography.headlineSmall)
+                Text("Filter Parameters", style = MaterialTheme.typography.headlineSmall)
                 Spacer(Modifier.height(20.dp))
 
-                // Section 1: Days
+                // Days
                 Text("Available Days of the Week", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(8.dp))
                 WeekdaySelector(
@@ -215,7 +225,7 @@ fun TimeAndWeekdaySelectorDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Section 2: Time Window
+                // Time Window
                 TimeIntervalSection(
                     label = "Daily Time Window Availability",
                     start = startMinutes.toTimeString(),
@@ -232,7 +242,7 @@ fun TimeAndWeekdaySelectorDialog(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Section 3: Duration
+                // Duration
                 DurationInputSection(
                     amount = durationAmount,
                     onAmountChange = { durationAmount = it },
@@ -248,14 +258,18 @@ fun TimeAndWeekdaySelectorDialog(
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            val totalMinutes = when (selectedUnit) {
-                                DurationUnit.MINUTES -> durationAmount.toDoubleOrNull()?.toInt()
-                                DurationUnit.HOURS -> durationAmount.toDoubleOrNull()?.let { (it * 60).toInt() }
-                            }?.coerceAtMost(1440) // Hard cap at 24 hours
-                            onApply(localQuery.copy(
-                                timeWindow = startMinutes..endMinutes,
-                                minDurationMinutes = totalMinutes
-                            ))
+                            val amountDouble = durationAmount.replace(',', '.').toDoubleOrNull() ?: 0.0
+                            val calculatedMinutes = when (selectedUnit) {
+                                DurationUnit.MINUTES -> amountDouble.toInt()
+                                DurationUnit.HOURS -> (amountDouble * 60).toInt()
+                            }.coerceAtMost(1440) // Hard cap at 24 hours
+
+                            onApply(
+                                localQuery.copy(
+                                    timeWindow = startMinutes..endMinutes,
+                                    minDurationMinutes = if (calculatedMinutes > 0) calculatedMinutes else null
+                                )
+                            )
                         },
                         shape = RoundedCornerShape(12.dp)
                     ) { Text("Apply Filters") }
@@ -348,7 +362,7 @@ fun DurationInputSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // The Number Input
+            // Number Input
             OutlinedTextField(
                 value = amount,
                 onValueChange = onAmountChange,
@@ -358,7 +372,7 @@ fun DurationInputSection(
                 singleLine = true
             )
 
-            // The Unit Selector
+            // Unit Selector
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))

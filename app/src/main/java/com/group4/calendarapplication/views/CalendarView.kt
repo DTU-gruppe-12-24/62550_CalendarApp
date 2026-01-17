@@ -471,13 +471,13 @@ private fun CalendarGrid(
                 val date = it.first
                 val events = it.second
 
+                val colors = LocalCalendarColors.current
                 val status = if (isFilterApplied) {
                     // Filter Mode: Only Green or Gray
                     val isAvailable = availability[date] ?: false
-                    if (isAvailable) Color(0xFF4CAF50) else Color(0xFFBDBDBD)
+                    if (isAvailable) colors.calendargreen else Color(0xFFBDBDBD)
                 } else {
                     // Default Mode: Red, Yellow Green
-                    val colors = LocalCalendarColors.current
                     when {
                         events.isEmpty() -> colors.calendargreen
                         events.size >= calendarCount * 0.9f -> colors.calendarred
@@ -541,7 +541,7 @@ private fun CalendarGrid(
 
 private fun LocalDate.formatToCalendarDay(): String = this.format(DateTimeFormatter.ofPattern("d"))
 private fun LocalDate.getDayOfWeek3Letters() : String = this.format(DateTimeFormatter.ofPattern("EEE"))
-public fun getDatesInMonth(month: LocalDate): List<LocalDate> {
+fun getDatesInMonth(month: LocalDate): List<LocalDate> {
     val firstDayOfMonth = LocalDate.of(month.year, month.month, 1)
     val lastDayOfMonth = firstDayOfMonth.plusMonths(1)
     return List<LocalDate>(lastDayOfMonth.minusDays(1).dayOfMonth, init = { i -> firstDayOfMonth.plusDays(i.toLong())})

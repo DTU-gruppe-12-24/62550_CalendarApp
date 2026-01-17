@@ -90,7 +90,7 @@ class GetCustomContents(
 }
 
 @Composable
-fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
+fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit, onError: (msg: String) -> Unit) {
     val context = LocalContext.current
 
     val filePicker = rememberLauncherForActivityResult(
@@ -109,8 +109,13 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
                 when (fileType) {
                     // If file is '.ics':
                     "text/calendar" -> {
-                        val calendar = importIcal(input)
-                        onResult(calendar)
+                        try {
+                            val calendar = importIcal(input)
+                            onResult(calendar)
+                        } catch (e: Exception) {
+                            Log.e("CalendarImport", "Failed to import calendar with error: $e")
+                            onError("Failed to import calendar with error: ${e.message ?: e.toString()}")
+                        }
                     }
                     // If file is '.zip':
                     "application/zip" -> {
@@ -130,9 +135,15 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
                             // Update upstream calendar
                             onResult(calendar)
                         } catch (e: Exception) {
-                            Log.e("CalendarImport", "Failed to import calendar(s) with error: $e")
-                            throw e
+                            Log.e("CalendarImport", "Failed to import calendars with error: $e")
+                            onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
+                            return@forEach
                         }
+                    }
+                    else -> {
+                        Log.e("CalendarImport", "Unknown file type selected for calendar import.")
+                        onError("Unknown file type selected for calendar import: Only .ics or .zip files are supported.")
+                        return@forEach
                     }
                 }
             }
@@ -148,7 +159,8 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
 @Composable
 fun UrlCalendarImport(
     onResult: (Calendar?) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onError: (msg: String) -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -197,7 +209,7 @@ fun UrlCalendarImport(
                             onClose()
                         } catch (e: Exception) {
                             Log.e("UrlCalendarImport", "Failed to import", e)
-                            onResult(null)
+                            onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
                         }
                     }
                 }

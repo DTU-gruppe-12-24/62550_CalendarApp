@@ -13,10 +13,6 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.compose.composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -26,6 +22,11 @@ import androidx.navigation.compose.NavHost
 import com.group4.calendarapplication.models.Group
 import com.group4.calendarapplication.views.CalendarView
 import com.group4.calendarapplication.views.HomeView
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 
 enum class Destination(
     val route: String,
@@ -41,6 +42,7 @@ enum class Destination(
 fun NavHost(
     groups: List<Group>,
     navController: NavHostController,
+    navHistory: NavigationHistory,
     startDestination: Destination,
     modifier: Modifier = Modifier
 ) {
@@ -50,6 +52,9 @@ fun NavHost(
     ) {
         Destination.entries.forEach { destination ->
             composable(destination.route) {
+                LaunchedEffect(destination.route) {
+                    navHistory.push(destination.route)
+                }
                 when (destination) {
                     Destination.HOME -> HomeView(groups, modifier)
                     Destination.CALENDAR -> CalendarView(groups, modifier)
@@ -60,24 +65,18 @@ fun NavHost(
 }
 
 @Composable
-fun NavBar(navController: NavHostController) {
-    var selectedDestination by rememberSaveable { mutableStateOf("") }
-    navController.addOnDestinationChangedListener { controller, destination, arguments ->
-        selectedDestination = destination.route ?: ""
-    }
+fun NavBar(navController: NavHostController, navHistory: NavigationHistory) {
     NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-        Destination.entries.forEachIndexed { index, destination ->
+        Destination.entries.forEach { destination ->
             NavigationBarItem(
-                selected = destination.route == selectedDestination,
+                selected = destination.route == navHistory.current(),
                 onClick = {
-                    navController.navigate(destination.route)
+                    navController.navigate(destination.route) {
+                        launchSingleTop = true
+                    }
+                    navHistory.push(destination.route)
                 },
-                icon = {
-                    Icon(
-                        destination.icon,
-                        contentDescription = destination.contentDescription
-                    )
-                },
+                icon = { Icon(destination.icon, contentDescription = destination.contentDescription) },
                 label = { Text(destination.label) }
             )
         }
@@ -88,13 +87,59 @@ fun NavBar(navController: NavHostController) {
 fun App(groups: List<Group>) {
     val navController = rememberNavController()
     val startDestination = Destination.HOME
+    val navHistory = remember { NavigationHistory(startDestination.route) }
+
+    AppBackHandler(navController)
+
+    BackHandler(enabled = true) {
+        val previous = navHistory.pop()
+        if (previous != null) {
+            navController.navigate(previous) {
+                popUpTo(previous) { inclusive = true }
+            }
+        }
+    }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        bottomBar = {
-            NavBar(navController)
-        }
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
+        bottomBar = { NavBar(navController, navHistory) }
     ) { innerPadding ->
-        NavHost(groups, navController, startDestination, modifier = Modifier.padding(innerPadding))
+        NavHost(
+            groups,
+            navController,
+            navHistory,
+            startDestination,
+            modifier = Modifier.padding(innerPadding)
+        )
     }
+}
+@Composable
+fun AppBackHandler(navController: NavHostController) {
+    BackHandler(enabled = navController.previousBackStackEntry != null) {
+        navController.popBackStack()
+    }
+}
+
+class NavigationHistory {
+    constructor(startItem: String) {
+        stack.add(startItem)
+    }
+
+    val stack = mutableStateListOf<String>()
+
+    fun push(route: String) {
+        if (stack.lastOrNull() != route) stack.add(route)
+    }
+
+    fun pop(): String? {
+        if (stack.size > 1) {
+            stack.removeAt(stack.lastIndex)
+            return stack.last()
+        }
+        return null
+    }
+
+    fun current(): String? = stack.lastOrNull()
 }

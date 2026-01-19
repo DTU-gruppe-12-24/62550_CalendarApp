@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -679,6 +681,7 @@ fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
                     modifier = Modifier
                         .padding(16.dp)
                         .padding(top = 32.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
 
                     Text(
@@ -726,11 +729,32 @@ fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
                     Spacer(Modifier.height(8.dp))
                     Text(
                         """
+                        1. Open Google Calendar on a computer
+                        2. Open "Settings"
+                        3. Export individual or combined calendars
+                            3.1 Under "Import & Export" all your calendars can be exported combined as one
+                            3.2 Under each individual calendar, the button "Export Calendar" will export the individual calendar
+                        """.trimIndent(),
+
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    Text(
+                        "Google Calendar (URL)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        """
                         1. Open Google Calendar on a computer  
                         2. Under “My calendars”, select the calendar  
-                        3. Open “Settings and sharing”  
-                        4. Find “Public address in iCal format”  
-                        5. Download the .ics file or zip file
+                        3. Open “Settings and sharing”
+                        4. Under "Integrate calendar" find “Public address in iCal format” or "Secret address in iCal format" 
+                        5. Copy the provided url
                         """.trimIndent(),
 
                         style = MaterialTheme.typography.bodyMedium,

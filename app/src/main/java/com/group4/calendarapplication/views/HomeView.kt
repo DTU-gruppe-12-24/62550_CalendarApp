@@ -33,6 +33,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -45,7 +46,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
@@ -68,11 +68,7 @@ fun HomeView(groups: List<Group>, modifier: Modifier) {
         val (group, setGroup) = rememberSaveable { mutableStateOf(groups[currentGroup]) }
 
         BackHandler(enabled = true) {
-            if (group.calendars.isNotEmpty()) {
-                currentGroup = -1
-            } else {
-                currentGroup = -1
-            }
+            currentGroup = -1
         }
 
         EditGroup(
@@ -144,7 +140,7 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
         )  {
             Text(text = "Add new group", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
             Spacer(modifier = Modifier.size(5.dp))
-            TextField(
+            LimitedTextField(
                 value = name.value,
                 onValueChange = { v -> name.value = v },
                 placeholder = { Text("Name of group") },
@@ -179,31 +175,30 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
         )
     }
 
-    val editName = remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf(false) }
     val colors = LocalCalendarColors.current
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.size(16.dp))
         val nameValue = remember { mutableStateOf(group.name) }
-        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName.value = true })) {
-            if (!editName.value) {
+        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName = true })) {
+            if (!editName) {
                 Text(text = group.name, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
                 EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
             } else {
-                TextField(
+                LimitedTextField(
                     value = nameValue.value,
                     onValueChange = { v ->
-                        if (v.endsWith("\n")) editName.value = false
-                        nameValue.value = v.replace("\n", "")
-                        group.name = v.replace("\n", "")
-                        editMade.value = true
+                        editMade.value = (group.name != v)
+                        nameValue.value = v
+                        group.name = v
                     },
-                    modifier = Modifier.align(Alignment.Center)
-                        .onFocusEvent {
-                            //if (!it.isCaptured) editName.value = false
-                        },
+                    onDismissRequest = {
+                        editName = false
+                    },
+                    modifier = Modifier.align(Alignment.Center),
                     textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
                 )
-                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName.value = false })
+                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
             }
         }
         Spacer(modifier = Modifier.size(32.dp))
@@ -392,7 +387,7 @@ fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onE
         else onExit()
     }
 
-    val editName = remember { mutableStateOf(false) }
+    var editName by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.size(16.dp))
         val nameValue = remember { mutableStateOf(calendar.name) }
@@ -403,23 +398,25 @@ fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onE
             )
         }
 
-        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName.value = true })) {
-            if (!editName.value) {
+        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName = true })) {
+            if (!editName) {
                 Text(text = calendar.name, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
                 EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
             } else {
-                TextField(
+                LimitedTextField(
                     value = nameValue.value,
                     onValueChange = { v ->
-                        if (v.endsWith("\n")) editName.value = false
-                        nameValue.value = v.replace("\n", "")
-                        calendar.name = v.replace("\n", "")
-                        editMade.value = true
+                        editMade.value = (calendar.name != v)
+                        nameValue.value = v
+                        calendar.name = v
+                    },
+                    onDismissRequest = {
+                        editName = false
                     },
                     modifier = Modifier.align(Alignment.Center),
                     textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
                 )
-                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName.value = false })
+                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
             }
         }
         Spacer(modifier = Modifier.size(32.dp))
@@ -657,6 +654,27 @@ fun ConfirmDialog(text: String, onSuccess: () -> Unit, onFail: () -> Unit) {
         }
     }
 }
+
+const val TEXT_LIMIT = 30
+@Composable
+fun LimitedTextField(value: String, onValueChange: (String) -> Unit, modifier: Modifier, placeholder:  @Composable (() -> Unit)? = null, textStyle: TextStyle = LocalTextStyle.current, onDismissRequest: (() -> Unit)? = null) {
+    TextField(
+        value = value,
+        onValueChange = { v ->
+            // Limit value and remove new lines
+            val updatedValue = v.take(TEXT_LIMIT).replace("\n", "")
+            onValueChange(updatedValue)
+            // Dismiss on enter
+            if (v.contains("\n")) {
+                if(onDismissRequest != null) onDismissRequest()
+            }
+        },
+        modifier = modifier,
+        placeholder = placeholder,
+        textStyle = textStyle,
+    )
+}
+
 @Composable
 fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {

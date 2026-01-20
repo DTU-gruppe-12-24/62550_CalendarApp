@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -75,7 +77,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
     if(activeGroup >= groups.size) activeGroup = -1
 
     val calendars = if (activeGroup >= 0) groups[activeGroup].calendars else ArrayList()
-
+    
     // Dialog popup
     val isDialogOpen = remember { mutableStateOf(false) }
     val dialogDate = remember { mutableStateOf(LocalDate.now()) }
@@ -153,16 +155,18 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
         Column(modifier = Modifier.fillMaxHeight()) {
             // Legend
-            if (activeGroup != -1) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    //verticalArrangement = Arrangement.Bottom
-                ) {
-                    calendars.forEach { calendar ->
-                        CalendarLegend(calendar, Modifier.fillMaxWidth())
-                    }
+            val scrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+                    .verticalScroll(scrollState)
+            ) {
+                calendars.forEach { calendar ->
+                    CalendarLegend(calendar, Modifier.fillMaxWidth())
                 }
             }
+
 
             // Calendar
             CalendarComponent((if (activeGroup < 0) null else groups[activeGroup]), { date ->
@@ -170,13 +174,14 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                 dialogDate.value = date
             }, modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp))
 
+            Spacer(modifier = Modifier.size(10.dp).weight(1f))
 
             // Filters
             CalendarFilterBar(
                 calendars = calendars
             )
 
-            Spacer(modifier = Modifier.size(10.dp).weight(1f))
+            Spacer(modifier = Modifier.size(20.dp))
 
             // Group selector
             if(groups.isNotEmpty()) {

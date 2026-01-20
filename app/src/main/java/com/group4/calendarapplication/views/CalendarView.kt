@@ -94,48 +94,67 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
         Dialog(onDismissRequest = { isDialogOpen.value = false }) {
             Card(
                 modifier = Modifier
-                    .height(200.dp),
+                    ,
                 shape = RoundedCornerShape(16.dp),
             )  {
                 Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
-                Text("Occupied by:", modifier = Modifier.padding(10.dp))
-
-                Spacer(Modifier.height(4.dp))
-
-                calendars.forEach { calendar ->
-                    val eventsOnDate = calendar.dates.filter { event ->
+                val hasAnyEvents = calendars.any { calendar ->
+                    calendar.dates.any { event ->
                         event.isDateTimeWithInEvent(dialogDate.value)
                     }
+                }
 
-                    eventsOnDate.forEach { event ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp, horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .background(calendar.color, shape = RoundedCornerShape(6.dp))
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (calendar.name.length > 18) calendar.name.take(18) + "…" else calendar.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                Text(
+                    text = if (hasAnyEvents) "Occupied by:" else "Everybody is free this day!",
+                    modifier = if (hasAnyEvents)
+                        Modifier.padding(2.dp)
+                    else
+                        Modifier.padding(15.dp),
+
+                    color = if (hasAnyEvents)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(5.dp))
+
+                if (hasAnyEvents) {
+
+                    calendars.forEach { calendar ->
+                        val eventsOnDate = calendar.dates.filter { event ->
+                            event.isDateTimeWithInEvent(dialogDate.value)
+                        }
+
+                        eventsOnDate.forEach { event ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .background(calendar.color, shape = RoundedCornerShape(6.dp))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (calendar.name.length > 18)
+                                            calendar.name.take(18) + "…"
+                                        else calendar.name
+                                    )
+                                }
+                                Text(event.getDisplayTextForDate(dialogDate.value))
+
                             }
-                            Text(
-                                text = event.getDisplayTextForDate(dialogDate.value),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
+                    Spacer(Modifier.height(10.dp))
+
                 }
+
             }
         }
     }

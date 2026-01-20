@@ -778,6 +778,26 @@ fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.bodyMedium,
                         lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
                     )
+                    Spacer(Modifier.height(20.dp))
+
+                    Text(
+                        "Outlook calendar (URL)",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        """
+                        1. Open Outlook on a computer
+                        2. Navigate to the settings (Top right corner on web, in the view header in the app)  
+                        3. Under "Calendar" go into "Shared calendars"
+                        4. Then select your calendar under "Publish calendars" and "Can view when I'm busy" under "Select permissions"
+                        5. Press publish and copy the second provided url
+                        """.trimIndent(),
+
+                        style = MaterialTheme.typography.bodyMedium,
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+                    )
                 }
             }
         }

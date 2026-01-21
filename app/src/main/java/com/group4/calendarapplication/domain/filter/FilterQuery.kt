@@ -7,14 +7,21 @@ data class FilterQuery(
     val requiredCalendars: Set<Calendar> = emptySet(),
     val optionalCalendars: Set<Calendar> = emptySet(),
     val weekdays: Set<DayOfWeek> = emptySet(),
-    val timeWindow: ClosedRange<Int>? = null, // minutes since midnight
-    val minDurationMinutes: Int? = null
+    val timeWindow: ClosedRange<Int>? = null,
+    val minDurationMinutes: Int? = null,
+    val totalAvailableParticipants: Int = 0
 ) {
     // Returns true if any filter criteria have been set
     val isActive: Boolean
-        get() = requiredCalendars.isNotEmpty() ||
-                optionalCalendars.isNotEmpty() ||
-                weekdays.isNotEmpty() ||
-                timeWindow != null ||
-                minDurationMinutes != null
+        get() {
+            // A participant filter is only "Active" if it restricts the group
+            val participantFilterActive = requiredCalendars.isNotEmpty() &&
+                    requiredCalendars.size < totalAvailableParticipants
+
+            return participantFilterActive ||
+                    optionalCalendars.isNotEmpty() ||
+                    weekdays.isNotEmpty() ||
+                    timeWindow != null ||
+                    minDurationMinutes != null
+        }
 }

@@ -79,7 +79,7 @@ fun CalendarFilterBar(
 
                         Spacer(Modifier.width(8.dp))
 
-                        TextButton(onClick = { onFilterChange(FilterQuery()) }) {
+                        TextButton(onClick = { onFilterChange(FilterQuery(requiredCalendars = calendars.toSet())) }) {
                             Text("Clear All", color = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -155,7 +155,10 @@ fun ParticipantSelectorDialog(
     onConfirm: (Set<Calendar>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var localSelected by remember { mutableStateOf(selected) }
+    var localSelected by remember {
+        // If the passed selection is empty, default to selecting everyone
+        mutableStateOf(selected.ifEmpty { calendars.toSet() })
+    }
     val allSelected = localSelected.size == calendars.size && calendars.isNotEmpty()
 
     Dialog(onDismissRequest = onDismiss) {
@@ -173,6 +176,12 @@ fun ParticipantSelectorDialog(
                         Text(if (allSelected) "Deselect All" else "Select All")
                     }
                 }
+                Text(
+                    "Which Participants must be available.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                )
 
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
@@ -218,8 +227,8 @@ fun TimeAndWeekdaySelectorDialog(
 ) {
     val context = LocalContext.current
     var localQuery by remember { mutableStateOf(filterQuery) }
-    var startMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.start ?: (9 * 60)) }
-    var endMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.endInclusive ?: (17 * 60)) }
+    var startMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.start ?: (8 * 60)) }
+    var endMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.endInclusive ?: (24 * 60)) }
     val totalMinutes = filterQuery.minDurationMinutes ?: 0
 
     // Determine unit and display amount based on stored totalMinutes
@@ -494,8 +503,14 @@ fun NextSlotsDialog(
             shape = RoundedCornerShape(24.dp)
         ) {
             Column(Modifier.padding(20.dp)) {
-                Text("Find Available Slot", style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(16.dp))
+                Text("Find Next Timeslot", style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    "Easily find the next free timeslot for your group according to the filters applied.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                )
+                Spacer(Modifier.height(8.dp))
 
                 // Settings
                 Row(
@@ -513,17 +528,17 @@ fun NextSlotsDialog(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text(searchStartDate.format(DateTimeFormatter.ofPattern("MMM d")))
                     }
 
-                    Box(modifier = Modifier.weight(0.7f)) {
+                    Box(modifier = Modifier.weight(0.8f)) {
                         OutlinedButton(
                             onClick = { expandedLimit = true },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("$selectedLimit")
+                            Text("Show $selectedLimit")
                             Icon(Icons.Default.ArrowDropDown, null)
                         }
                         DropdownMenu(

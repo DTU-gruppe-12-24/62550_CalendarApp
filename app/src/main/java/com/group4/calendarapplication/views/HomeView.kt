@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -163,7 +164,7 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit, deleteGroup: () -> Unit) {
-    val editMade = remember { mutableStateOf(false) }
+    var editMade by remember { mutableStateOf(false) }
 
     val editCalendarIndex = remember { mutableIntStateOf(-1) }
     if (editCalendarIndex.intValue >= 0) {
@@ -172,7 +173,8 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             modifier = modifier,
             onExit = { editCalendarIndex.intValue = -1; },
             onEdit = { calendar ->
-                group.calendars[editCalendarIndex.intValue] = calendar; editMade.value = true
+                group.calendars[editCalendarIndex.intValue] = calendar
+                onEdit(group)
             }
         )
     }
@@ -181,26 +183,61 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
     val colors = LocalCalendarColors.current
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.size(16.dp))
-        val nameValue = remember { mutableStateOf(group.name) }
+        var nameValue by remember { mutableStateOf(group.name) }
         Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName = true })) {
             if (!editName) {
-                Text(text = group.name, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
+                Text(text = nameValue, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
                 EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
             } else {
-                LimitedTextField(
-                    value = nameValue.value,
-                    onValueChange = { v ->
-                        editMade.value = (group.name != v)
-                        nameValue.value = v
-                        group.name = v
-                    },
-                    onDismissRequest = {
-                        editName = false
-                    },
-                    modifier = Modifier.align(Alignment.Center),
-                    textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
-                )
-                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
+                Box(Modifier.fillMaxWidth()) {
+                    LimitedTextField(
+                        value = nameValue,
+                        onValueChange = { v ->
+                            editMade = (nameValue != v)
+                            nameValue = v
+                        },
+                        onDismissRequest = {
+                            editName = false
+                        },
+                        modifier = Modifier.align(Alignment.Center),
+                        textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
+                    )
+                    CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
+                }
+            }
+        }
+        if (editMade) Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
+            Button(
+                onClick = {
+                    group.name = nameValue
+                    onEdit(group)
+                    editName = false
+                    editMade = false
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) {
+                SaveIcon(Modifier.size(24.dp))
+                Text("Save")
+            }
+
+            Button(
+                onClick = {
+                    nameValue = group.name
+                    editName = false
+                    editMade = false
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) {
+                CloseIcon(Modifier.size(24.dp))
+                Text("Cancel")
             }
         }
         Spacer(modifier = Modifier.size(32.dp))
@@ -302,7 +339,6 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 onDismissRequest = { openCreateCalendarDialog.value = false },
                 addCalender = { cal ->
                     group.calendars.add(cal)
-                    editMade.value = true
                     onEdit(group)
                 }
             )
@@ -321,27 +357,14 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
         ) {
-            Button(
-                onClick = {
-                    group.name = nameValue.value
-                    onEdit(group)
-                    onExit()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                SaveIcon(Modifier.size(24.dp))
-                Text("Save")
-            }
-
             val confirmCancel = remember { mutableStateOf(false) }
-            if (confirmCancel.value) ConfirmDialog(text = "Are you sure you want to exit without saving your changes?", onSuccess = { onExit(); confirmCancel.value = false } , onFail = { confirmCancel.value = false })
+            if (confirmCancel.value) ConfirmDialog(
+                text = "Do you want to save your changes?",
+                onSuccess = { group.name = nameValue; onEdit(group); confirmCancel.value = false; onExit() },
+                onFail = { confirmCancel.value = false; onExit() })
             Button(
                 onClick = {
-                    if (editMade.value) confirmCancel.value = true
+                    if (editMade) confirmCancel.value = true
                     else onExit()
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -350,8 +373,8 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 ),
                 modifier = Modifier.align(Alignment.CenterVertically)
             ) {
-                CloseIcon(Modifier.size(24.dp))
-                Text("Cancel")
+                BackIcon(Modifier.size(24.dp))
+                Text("Exit")
             }
             val confirmGroupDelete = remember { mutableStateOf(false) }
             if (confirmGroupDelete.value)
@@ -372,7 +395,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 modifier = Modifier.align(Alignment.CenterVertically)
             ) {
                 DeleteIcon(Modifier.size(24.dp))
-                Text("Delete")
+                Text("Delete group")
             }
         }
     }
@@ -572,6 +595,23 @@ fun SaveIcon(modifier: Modifier = Modifier) {
         Icon(
             Icons.Default.CheckCircle,
             "Save",
+            Modifier.fillMaxSize(),
+            MaterialTheme.colorScheme.secondary
+        )
+    }
+}
+
+@Composable
+fun BackIcon(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .padding(2.dp),
+        Alignment.Center
+    ) {
+        Icon(
+            Icons.AutoMirrored.Default.ExitToApp,
+            "Back",
             Modifier.fillMaxSize(),
             MaterialTheme.colorScheme.secondary
         )

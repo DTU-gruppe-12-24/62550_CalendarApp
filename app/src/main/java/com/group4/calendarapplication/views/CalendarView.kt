@@ -159,7 +159,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(90.dp)
+                    .height(59.dp)
                     .verticalScroll(scrollState)
             ) {
                 calendars.forEach { calendar ->
@@ -181,7 +181,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                 calendars = calendars
             )
 
-            Spacer(modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.size(15.dp))
 
             // Group selector
             if(groups.isNotEmpty()) {

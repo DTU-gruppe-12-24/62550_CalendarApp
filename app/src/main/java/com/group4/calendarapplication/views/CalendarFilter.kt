@@ -31,6 +31,7 @@ import com.group4.calendarapplication.domain.filter.FilterQuery
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.viewmodel.DurationUnit
 import com.group4.calendarapplication.domain.filter.AvailabilityEngine
+import com.group4.calendarapplication.views.components.DialogActionRow
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -209,10 +210,10 @@ fun ParticipantSelectorDialog(
                     }
                 }
 
-                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Button(onClick = { onConfirm(localSelected) }) { Text("Confirm") }
-                }
+                DialogActionRow(
+                    onDismiss = onDismiss,
+                    onConfirm = { onConfirm(localSelected) }
+                )
             }
         }
     }
@@ -263,7 +264,7 @@ fun TimeAndWeekdaySelectorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
-                Text("Filter Parameters", style = MaterialTheme.typography.headlineSmall)
+                Text("Time and days", style = MaterialTheme.typography.headlineSmall)
                 Spacer(Modifier.height(20.dp))
 
                 // Days
@@ -307,28 +308,23 @@ fun TimeAndWeekdaySelectorDialog(
 
                 Spacer(Modifier.height(32.dp))
 
-                // Buttons
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            val amountDouble = durationAmount.replace(',', '.').toDoubleOrNull() ?: 0.0
-                            val calculatedMinutes = when (selectedUnit) {
-                                DurationUnit.MINUTES -> amountDouble.toInt()
-                                DurationUnit.HOURS -> (amountDouble * 60).toInt()
-                            }.coerceAtMost(1440) // Hard cap at 24 hours
+                DialogActionRow(
+                    onDismiss = onDismiss,
+                    onConfirm = {
+                        val amountDouble = durationAmount.replace(',', '.').toDoubleOrNull() ?: 0.0
+                        val calculatedMinutes = when (selectedUnit) {
+                            DurationUnit.MINUTES -> amountDouble.toInt()
+                            DurationUnit.HOURS -> (amountDouble * 60).toInt()
+                        }.coerceAtMost(1440)
 
-                            onApply(
-                                localQuery.copy(
-                                    timeWindow = startMinutes..endMinutes,
-                                    minDurationMinutes = if (calculatedMinutes > 0) calculatedMinutes else null
-                                )
+                        onApply(
+                            localQuery.copy(
+                                timeWindow = startMinutes..endMinutes,
+                                minDurationMinutes = if (calculatedMinutes > 0) calculatedMinutes else null
                             )
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    ) { Text("Apply Filters") }
-                }
+                        )
+                    }
+                )
             }
         }
     }
@@ -579,14 +575,9 @@ fun NextSlotsDialog(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Close")
-                    }
-                }
+                DialogActionRow(
+                    onDismiss = onDismiss
+                )
             }
         }
     }

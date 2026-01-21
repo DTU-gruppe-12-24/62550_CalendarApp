@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -51,13 +53,16 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
 import com.group4.calendarapplication.viewmodel.CalendarViewModel
 import com.group4.calendarapplication.ui.theme.LocalCalendarColors
+import com.group4.calendarapplication.views.components.DialogActionRow
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -94,67 +99,87 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
         Dialog(onDismissRequest = { isDialogOpen.value = false }) {
             Card(
                 modifier = Modifier
-                    ,
-                shape = RoundedCornerShape(16.dp),
-            )  {
-                Text(dialogDate.value.toString(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp))
-                val hasAnyEvents = calendars.any { calendar ->
-                    calendar.dates.any { event ->
-                        event.isDateTimeWithInEvent(dialogDate.value)
-                    }
-                }
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        // Scroll in case there are many participants/events
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Date
+                    Text(
+                        text = dialogDate.value.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
 
-                Text(
-                    text = if (hasAnyEvents) "Occupied by:" else "Everybody is free this day!",
-                    modifier = if (hasAnyEvents)
-                        Modifier.padding(2.dp)
-                    else
-                        Modifier.padding(15.dp),
+                    Spacer(Modifier.height(16.dp))
 
-                    color = if (hasAnyEvents)
-                        MaterialTheme.colorScheme.onSurface
-                    else
-                        MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.height(5.dp))
-
-                if (hasAnyEvents) {
-
-                    calendars.forEach { calendar ->
-                        val eventsOnDate = calendar.dates.filter { event ->
+                    val hasAnyEvents = calendars.any { calendar ->
+                        calendar.dates.any { event ->
                             event.isDateTimeWithInEvent(dialogDate.value)
                         }
+                    }
 
-                        eventsOnDate.forEach { event ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp, horizontal = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(12.dp)
-                                            .background(calendar.color, shape = RoundedCornerShape(6.dp))
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                    // Status
+                    Text(
+                        text = if (hasAnyEvents) "Occupied by:" else "Everybody is free this day!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (hasAnyEvents) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    if (hasAnyEvents) {
+                        calendars.forEach { calendar ->
+                            val eventsOnDate = calendar.dates.filter { event ->
+                                event.isDateTimeWithInEvent(dialogDate.value)
+                            }
+
+                            eventsOnDate.forEach { event ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .background(calendar.color, shape = CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = calendar.name,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
                                     Text(
-                                        text = if (calendar.name.length > 18)
-                                            calendar.name.take(18) + "…"
-                                        else calendar.name
+                                        text = event.getDisplayTextForDate(dialogDate.value),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
-                                Text(event.getDisplayTextForDate(dialogDate.value))
-
                             }
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
 
+                    Spacer(Modifier.height(12.dp))
+
+                    DialogActionRow(
+                        onDismiss = { isDialogOpen.value = false },
+                    )
                 }
-
             }
         }
     }

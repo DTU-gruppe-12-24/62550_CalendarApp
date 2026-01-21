@@ -10,13 +10,13 @@ import android.os.StrictMode.ThreadPolicy
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -26,12 +26,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.importIcal
@@ -149,8 +145,16 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit, onError: (msg: S
             onResult(null)
         })
 
-    Button(onClick = { filePicker.launch("*/*")}) {
-        Text("Add calendar from file")
+    Button(
+        onClick = { filePicker.launch("*/*") },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    ) {
+        Text("Select File From Device")
     }
 }
 
@@ -163,69 +167,53 @@ fun UrlCalendarImport(
     var url by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    Box(
-        modifier = Modifier
+    Column(modifier = Modifier.fillMaxWidth()) {
+        TextField(
+            value = url,
+            onValueChange = { url = it },
+            placeholder = { Text("Paste calendar URL") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
 
-    ) {
+        Spacer(modifier = Modifier.height(12.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Button(
+            enabled = url.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    try {
+                        val normalized = normalizeWebcalUrl(url)
 
-        ) {
-            Text(
-                text = "Add new Calendar with URL or file",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = TextUnit(6.0f, TextUnitType.Em),
-                textAlign = TextAlign.Center
-            )
+                        val policy = ThreadPolicy.Builder().permitAll().build()
+                        StrictMode.setThreadPolicy(policy)
 
-            Spacer(Modifier.height(8.dp))
-
-            TextField(
-                value = url,
-                onValueChange = { url = it },
-                placeholder = { Text("Paste calendar URL") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-
-            Button(
-                enabled = url.isNotBlank(),
-                onClick = {
-                    scope.launch {
-                        try {
-                            val normalized = normalizeWebcalUrl(url)
-
-                            val policy = ThreadPolicy.Builder().permitAll().build()
-                            StrictMode.setThreadPolicy(policy)
-
-                            val input = withContext(Dispatchers.IO) {
-                                downloadIcs(normalized)
-                            }
-                            try {
-                                val calendar = importIcal(input)
-                                onResult(calendar)
-                            } catch(_: Exception) {
-                                val calendars = importZippedIcal(input)
-                                onResult(combineCalendars(calendars))
-                            }
-                            onClose()
-                        } catch (e: Exception) {
-                            Log.e("UrlCalendarImport", "Failed to import", e)
-                            onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
+                        val input = withContext(Dispatchers.IO) {
+                            downloadIcs(normalized)
                         }
+                        try {
+                            val calendar = importIcal(input)
+                            onResult(calendar)
+                        } catch(_: Exception) {
+                            val calendars = importZippedIcal(input)
+                            onResult(combineCalendars(calendars))
+                        }
+                        onClose()
+                    } catch (e: Exception) {
+                        Log.e("UrlCalendarImport", "Failed to import", e)
+                        onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
                     }
                 }
-            ) {
-                Text("Import")
-            }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Import from URL")
         }
     }
 }
+
 
 fun combineCalendars(calendars: ArrayList<Calendar>): Calendar {
     return Calendar(

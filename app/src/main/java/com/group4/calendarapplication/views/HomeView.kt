@@ -60,6 +60,7 @@ import com.group4.calendarapplication.MainActivity
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
 import com.group4.calendarapplication.ui.theme.LocalCalendarColors
+import com.group4.calendarapplication.views.components.DialogActionRow
 
 @Composable
 fun HomeView(groups: List<Group>, modifier: Modifier) {
@@ -135,30 +136,39 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
     val mainActivity = LocalActivity.current as MainActivity
     val name = remember { mutableStateOf("") }
 
-    Dialog(onDismissRequest = { onDismissRequest() }) {
+    Dialog(onDismissRequest = onDismissRequest) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            shape = RoundedCornerShape(16.dp),
-        )  {
-            Text(text = "Add new group", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
-            Spacer(modifier = Modifier.size(5.dp))
-            LimitedTextField(
-                value = name.value,
-                onValueChange = { v -> name.value = v },
-                placeholder = { Text("Name of group") },
-                modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.8f)
-            )
-            Spacer(modifier = Modifier.size(16.dp))
-            Button(onClick = {
-                mainActivity.addGroup(Group(name.value, ArrayList()))
-                onDismissRequest()
-            }, modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.7f)) {
-                Text("Create")
-            }
-            Spacer(modifier = Modifier.size(16.dp))
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            shape = RoundedCornerShape(24.dp),
+        ) {
+            Column(Modifier.padding(24.dp)) {
+                Text(
+                    text = "New Group",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
+                Spacer(modifier = Modifier.size(16.dp))
+
+                LimitedTextField(
+                    value = name.value,
+                    onValueChange = { v -> name.value = v },
+                    placeholder = { Text("Name of group") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.size(24.dp))
+
+                DialogActionRow(
+                    onDismiss = onDismissRequest,
+                    onConfirm = {
+                        if (name.value.isNotBlank()) {
+                            mainActivity.addGroup(Group(name.value, ArrayList()))
+                            onDismissRequest()
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -260,63 +270,80 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             onDismissRequest: () -> Unit,
             addCalender: (cal: Calendar) -> Unit,
         ) {
+            // State managed within the dialog
+            val showHelp = remember { mutableStateOf(false) }
+
+            // Logic for help dialog
+            if (showHelp.value) {
+                AddCalendarHelpDialog { showHelp.value = false }
+            }
+
             Dialog(onDismissRequest = onDismissRequest) {
-
-                val showHelp = remember { mutableStateOf(false) }
-
-                if (showHelp.value) {
-                    AddCalendarHelpDialog { showHelp.value = false }
-                }
-
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(5.dp)
                 ) {
-                    Box {
-                        CloseIconButton(
-                            onClick = onDismissRequest,
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(8.dp)
-                                .size(40.dp)
-                        )
-
-                        HelpIconButton(
-                            onClick = { showHelp.value = true },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                                .size(40.dp)
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 40.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    Column(
+                        modifier = Modifier
+                            .padding(20.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        // Header Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            UrlCalendarImport(
-                                onResult = { calendar ->
-                                    if (calendar != null) addCalender(calendar)
-                                    onDismissRequest()
-                                },
-                                onError = { msg -> errorMessage.value = msg },
-                                onClose = onDismissRequest
+                            Text(
+                                text = "Add Calendar",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
-
-                            Spacer(Modifier.height(16.dp))
-                            HorizontalDivider()
-                            Spacer(Modifier.height(16.dp))
-
-                            FileCalendarImport(
-                                onResult = { calendar ->
-                                    if (calendar != null) addCalender(calendar)
-                                    onDismissRequest()
-                                },
-                                onError = { msg -> errorMessage.value = msg }
-                            )
+                            HelpIconButton(onClick = { showHelp.value = true })
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Import via URL or select a local file (.ics, .zip)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Unified Import UI
+                        UrlCalendarImport(
+                            onResult = { calendar ->
+                                if (calendar != null) addCalender(calendar)
+                                onDismissRequest()
+                            },
+                            onError = { _ -> /* Handle error here if needed */ },
+                            onClose = onDismissRequest
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // File Import Section
+                        FileCalendarImport(
+                            onResult = { calendar ->
+                                if (calendar != null) addCalender(calendar)
+                                onDismissRequest()
+                            },
+                            onError = { _ -> /* Handle error here if needed */ }
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        DialogActionRow(
+                            onDismiss = onDismissRequest
+                        )
                     }
                 }
             }
@@ -746,14 +773,6 @@ fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
             shape = RoundedCornerShape(16.dp)
         ) {
             Box {
-
-                CloseIconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
-                )
-
                 Column(
                     modifier = Modifier
                         .padding(16.dp)
@@ -856,6 +875,9 @@ fun AddCalendarHelpDialog(onDismiss: () -> Unit) {
 
                         style = MaterialTheme.typography.bodyMedium,
                         lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+                    )
+                    DialogActionRow(
+                        onDismiss = onDismiss
                     )
                 }
             }

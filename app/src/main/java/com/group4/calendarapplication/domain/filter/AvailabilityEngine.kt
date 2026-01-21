@@ -3,6 +3,7 @@ package com.group4.calendarapplication.domain.filter
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Event
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class AvailabilityEngine {
 
@@ -80,5 +81,45 @@ class AvailabilityEngine {
             gaps.add(currentPointer..window.endInclusive)
         }
         return gaps
+    }
+
+    fun findNextSlots(
+        calendars: List<Calendar>,
+        startDate: LocalDate,
+        query: FilterQuery,
+        limit: Int
+    ): List<LocalDateTime> {
+        val results = mutableListOf<LocalDateTime>()
+        var currentDate = startDate
+        val maxSearchDays = 180
+
+        val window = query.timeWindow ?: (0..1440)
+        val minDuration = query.minDurationMinutes ?: 1
+
+        val relevantCalendars = if (query.requiredCalendars.isNotEmpty()) {
+            query.requiredCalendars
+        } else {
+            calendars.toSet()
+        }
+
+        var daysSearched = 0
+        while (results.size < limit && daysSearched < maxSearchDays) {
+            if (query.weekdays.isEmpty() || currentDate.dayOfWeek in query.weekdays) {
+                val dailyBlocks = relevantCalendars.flatMap { it.dates }
+                    .mapNotNull { getMinuteRangeForDate(it, currentDate) }
+
+                val gaps = calculateFreeGaps(window, dailyBlocks)
+
+                for (gap in gaps) {
+                    if ((gap.last - gap.first) >= minDuration) {
+                        results.add(currentDate.atStartOfDay().plusMinutes(gap.first.toLong()))
+                        if (results.size >= limit) break
+                    }
+                }
+            }
+            currentDate = currentDate.plusDays(1)
+            daysSearched++
+        }
+        return results
     }
 }

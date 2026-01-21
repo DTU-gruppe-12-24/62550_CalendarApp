@@ -191,10 +191,16 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
             // Filters
             if (activeGroup != -1) {
                 CalendarFilterBar(
-                    calendars = groups[activeGroup].calendars,
+                    calendars = calendars,
                     filterQuery = filterQuery,
-                    onFilterChange = { newQuery ->
-                        viewModel.updateFilter(newQuery)
+                    onFilterChange = { viewModel.updateFilter(it) },
+                    onJumpToDate = { dateTime ->
+                        // Tell ViewModel to change the month
+                        viewModel.updateMonth(dateTime.toLocalDate())
+
+                        // Immediately open the "Occupied By" dialog
+                        dialogDate.value = dateTime.toLocalDate()
+                        isDialogOpen.value = true
                     }
                 )
             }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -326,9 +327,12 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                     Modifier.fillMaxSize().padding(2.dp).clickable{ editCalendarIndex.intValue = i },
                     Arrangement.SpaceBetween
                 ) {
+                    Box(Modifier.align(Alignment.CenterVertically).clickable { editCalendarIndex.intValue = i }) {
+                        EditIcon(Modifier.align(Alignment.CenterStart).fillMaxHeight(0.66f))
+                    }
                     CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
                     Box(Modifier.align(Alignment.CenterVertically).clickable { calendarDeleteIndex.intValue = i; confirmCalendarDelete.value = true }) {
-                        DeleteIcon(Modifier.align(Alignment.CenterEnd))
+                        DeleteIcon(Modifier.align(Alignment.CenterEnd), LocalCalendarColors.current.calendarred)
                     }
                 }
             })
@@ -390,7 +394,6 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.calendarred,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-
                 ),
                 modifier = Modifier.align(Alignment.CenterVertically)
             ) {
@@ -403,19 +406,19 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
 
 @Composable
 fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onEdit: (calendar: Calendar) -> Unit) {
-    val editMade = remember { mutableStateOf(false) }
+    var editMade by remember { mutableStateOf(false) }
 
     val confirmCancel = remember { mutableStateOf(false) }
     if (confirmCancel.value) ConfirmDialog(text = "Are you sure you want to exit without saving your changes?", onSuccess = { onExit(); confirmCancel.value = false } , onFail = { confirmCancel.value = false })
     fun close() {
-        if (editMade.value) confirmCancel.value = true
+        if (editMade) confirmCancel.value = true
         else onExit()
     }
 
     var editName by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxSize()) {
         Spacer(modifier = Modifier.size(16.dp))
-        val nameValue = remember { mutableStateOf(calendar.name) }
+        var nameValue by remember { mutableStateOf(calendar.name) }
         Box(Modifier.fillMaxWidth()) {
             CloseIconButton(
                 Modifier.size(32.dp).align(Alignment.TopStart).offset((-8).dp, 0.dp),
@@ -425,15 +428,14 @@ fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onE
 
         Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName = true })) {
             if (!editName) {
-                Text(text = calendar.name, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
+                Text(text = nameValue, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
                 EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
             } else {
                 LimitedTextField(
-                    value = nameValue.value,
+                    value = nameValue,
                     onValueChange = { v ->
-                        editMade.value = (calendar.name != v)
-                        nameValue.value = v
-                        calendar.name = v
+                        editMade = (nameValue != v)
+                        nameValue = v
                     },
                     onDismissRequest = {
                         editName = false
@@ -441,7 +443,7 @@ fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onE
                     modifier = Modifier.align(Alignment.Center),
                     textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
                 )
-                CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
+                SaveIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
             }
         }
         Spacer(modifier = Modifier.size(32.dp))
@@ -460,20 +462,25 @@ fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onE
                         .padding(16.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    ColorPicker(calendar.color, onEdit = { color -> calendar.color = color; editMade.value = true }, onExit = { editColorDialog.value = false })
+                    ColorPicker(calendar.color, onEdit = { color -> calendar.color = color; editMade = true }, onExit = { editColorDialog.value = false })
                 }
             }
         }
-
-
         Spacer(modifier = Modifier.size(10.dp))
+
+        var confirmCancel by remember { mutableStateOf(false) }
+        if (confirmCancel) ConfirmDialog(
+            text = "Do you want to save your changes?",
+            onSuccess = { calendar.name = nameValue; onEdit(calendar); confirmCancel = false; onExit() },
+            onFail = { confirmCancel = false; onExit() }
+        )
         Row(
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
         ) {
             Button(
                 onClick = {
-                    calendar.name = nameValue.value
+                    calendar.name = nameValue
                     onEdit(calendar)
                     onExit()
                 },
@@ -488,7 +495,10 @@ fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onE
             }
 
             Button(
-                onClick = { close() },
+                onClick = {
+                    if (editMade) confirmCancel = true
+                    else close()
+                },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.primary
@@ -567,7 +577,7 @@ fun HelpIconButton(
 
 
 @Composable
-fun DeleteIcon(modifier: Modifier = Modifier) {
+fun DeleteIcon(modifier: Modifier = Modifier, color: Color? = null) {
     Box(
         modifier
             .aspectRatio(0.8f)
@@ -578,8 +588,7 @@ fun DeleteIcon(modifier: Modifier = Modifier) {
             Icons.Default.Delete,
             "Delete",
             Modifier.fillMaxSize(),
-            MaterialTheme.colorScheme.secondary
-
+            color ?: MaterialTheme.colorScheme.secondary
         )
     }
 }
@@ -597,6 +606,16 @@ fun SaveIcon(modifier: Modifier = Modifier) {
             "Save",
             Modifier.fillMaxSize(),
             MaterialTheme.colorScheme.secondary
+        )
+    }
+}
+
+@Composable
+fun SaveIconButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier) {
+        Icon(
+            Icons.Default.Check,
+            "Save",
         )
     }
 }

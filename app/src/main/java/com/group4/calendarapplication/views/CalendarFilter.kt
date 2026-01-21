@@ -1,13 +1,21 @@
 package com.group4.calendarapplication.views
 
 import android.app.TimePickerDialog
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,28 +23,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.domain.filter.FilterQuery
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.viewmodel.DurationUnit
+import com.group4.calendarapplication.domain.filter.AvailabilityEngine
 import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
 fun CalendarFilterBar(
     calendars: List<Calendar>,
     filterQuery: FilterQuery,
-    onFilterChange: (FilterQuery) -> Unit
+    onFilterChange: (FilterQuery) -> Unit,
+    onJumpToDate: (LocalDateTime) -> Unit
 ) {
+    // State for controlling which dialog is open
     var showParticipants by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
+    var showNextSlotsDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
+            // Top Row: Title, Find Slot, and Clear
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -44,10 +62,26 @@ fun CalendarFilterBar(
             ) {
                 Text("Filters", style = MaterialTheme.typography.titleMedium)
 
-                // Show "Clear" only if filters are actually set
-                if (filterQuery.isActive) {
-                    TextButton(onClick = { onFilterChange(FilterQuery()) }) {
-                        Text("Clear All", color = MaterialTheme.colorScheme.error)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (filterQuery.isActive) {
+                        Button(
+                            onClick = { showNextSlotsDialog = true },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        ) {
+                            Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Find Slot")
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        TextButton(onClick = { onFilterChange(FilterQuery()) }) {
+                            Text("Clear All", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
@@ -59,6 +93,18 @@ fun CalendarFilterBar(
                 FilterButton("Time & days") { showTime = true }
             }
         }
+    }
+
+    if (showNextSlotsDialog) {
+        NextSlotsDialog(
+            calendars = calendars,
+            filterQuery = filterQuery,
+            onDismiss = { showNextSlotsDialog = false },
+            onSlotClick = { dateTime ->
+                onJumpToDate(dateTime)
+                showNextSlotsDialog = false
+            }
+        )
     }
 
     if (showParticipants) {
@@ -418,6 +464,144 @@ private fun WeekdaySelector(selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> U
                 label = { Text(day.name.take(3)) }
             )
         }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NextSlotsDialog(
+    calendars: List<Calendar>,
+    filterQuery: FilterQuery,
+    onSlotClick: (LocalDateTime) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val engine = remember { AvailabilityEngine() }
+    val context = LocalContext.current
+
+    var searchStartDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedLimit by remember { mutableIntStateOf(5) }
+    var expandedLimit by remember { mutableStateOf(false) }
+
+    val slots = remember(searchStartDate, selectedLimit, filterQuery) {
+        engine.findNextSlots(calendars, searchStartDate, filterQuery, selectedLimit)
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .wrapContentHeight()
+                .heightIn(max = 600.dp),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Text("Find Available Slot", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(16.dp))
+
+                // Settings
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val picker = DatePickerDialog(context, { _, y, m, d ->
+                                searchStartDate = LocalDate.of(y, m + 1, d)
+                            }, searchStartDate.year, searchStartDate.monthValue - 1, searchStartDate.dayOfMonth)
+                            picker.show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(searchStartDate.format(DateTimeFormatter.ofPattern("MMM d")))
+                    }
+
+                    Box(modifier = Modifier.weight(0.7f)) {
+                        OutlinedButton(
+                            onClick = { expandedLimit = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("$selectedLimit")
+                            Icon(Icons.Default.ArrowDropDown, null)
+                        }
+                        DropdownMenu(
+                            expanded = expandedLimit,
+                            onDismissRequest = { expandedLimit = false }
+                        ) {
+                            listOf(3, 5, 10, 20, 50).forEach { limit ->
+                                DropdownMenuItem(
+                                    text = { Text(limit.toString()) },
+                                    onClick = {
+                                        selectedLimit = limit
+                                        expandedLimit = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(modifier = Modifier.height(0.3.dp))
+                Spacer(Modifier.height(16.dp))
+
+                // Results
+                Box(modifier = Modifier.weight(1f, fill = false)) {
+                    if (slots.isEmpty()) {
+                        Text(
+                            "No slots found.",
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(slots) { slot ->
+                                SlotItem(slot = slot, onClick = { onSlotClick(slot) })
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SlotItem(slot: LocalDateTime, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = slot.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = slot.format(DateTimeFormatter.ofPattern("HH:mm")),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.primary)
     }
 }
 

@@ -128,7 +128,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
                     Text(
                         text = if (hasAnyEvents) "Occupied by:" else "Everybody is free this day!",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (hasAnyEvents) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -286,7 +286,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
 
 @Composable
-fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier, maxLength: Int = 0) {
+fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
     Row (modifier = modifier) {
         Card(
             shape = CircleShape,
@@ -300,9 +300,10 @@ fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier, maxLength:
                 ButtonDefaults.buttonColors().disabledContainerColor,
                 ButtonDefaults.buttonColors().disabledContentColor,
             )
-        ) {}
+        ) {
+        }
         Text(
-            text = if (maxLength > 0 && calendar.name.length > maxLength) calendar.name.take(maxLength) + "..." else calendar.name,
+            text = calendar.name,
             modifier = Modifier.padding(5.dp, 0.dp),
             textAlign = TextAlign.Start
         )

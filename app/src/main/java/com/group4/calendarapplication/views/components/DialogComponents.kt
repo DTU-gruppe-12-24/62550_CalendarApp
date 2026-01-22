@@ -13,14 +13,21 @@ import androidx.compose.ui.unit.dp
 fun DialogActionRow(
     onDismiss: () -> Unit,
     onConfirm: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
     confirmEnabled: Boolean = true
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         DismissButton(onClick = onDismiss)
+
+        if (onDelete != null) {
+            DeleteButton(onClick = onDelete)
+        }
 
         if (onConfirm != null) {
             SuccessButton(

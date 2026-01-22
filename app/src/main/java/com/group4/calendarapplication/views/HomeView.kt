@@ -3,6 +3,7 @@ package com.group4.calendarapplication.views
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,14 +26,8 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,10 +43,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Alignment.Companion.BottomCenter
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
@@ -59,8 +59,10 @@ import androidx.compose.ui.window.Dialog
 import com.group4.calendarapplication.MainActivity
 import com.group4.calendarapplication.models.Calendar
 import com.group4.calendarapplication.models.Group
-import com.group4.calendarapplication.ui.theme.LocalCalendarColors
+import com.group4.calendarapplication.views.components.DeleteButton
 import com.group4.calendarapplication.views.components.DialogActionRow
+import com.group4.calendarapplication.views.components.SuccessButton
+import com.group4.calendarapplication.views.components.DismissButton
 
 @Composable
 fun HomeView(groups: List<Group>, modifier: Modifier) {
@@ -70,21 +72,18 @@ fun HomeView(groups: List<Group>, modifier: Modifier) {
     if(currentGroup == -1 || groups.isEmpty()) {
         GroupOverview(groups, { group -> currentGroup = group }, modifier)
     } else {
-        val (group, setGroup) = rememberSaveable { mutableStateOf(groups[currentGroup]) }
+        val group = groups[currentGroup]
 
         BackHandler(enabled = true) {
             currentGroup = -1
         }
 
         EditGroup(
-            Group(group.name, group.calendars),
-            modifier,
+            group = group,
+            modifier = modifier,
             onExit = { currentGroup = -1 },
-            onEdit = { g ->
-                setGroup(g)
-                mainActivity.updateGroup(currentGroup, g)
-                currentGroup--
-                currentGroup++
+            onEdit = { updatedGroup ->
+                mainActivity.updateGroup(currentGroup, updatedGroup)
             },
             deleteGroup = {
                 mainActivity.removeGroup(currentGroup)
@@ -107,16 +106,17 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
         Text(text = "Calendar groups", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
         Spacer(modifier = Modifier.size(32.dp))
 
-        val maxNameLength = 20
         val items = ArrayList<@Composable () -> Unit>()
         for (i in 0..<groups.size) {
             items.add({
-                Box(modifier = Modifier.fillMaxSize().clickable(onClick = { onSelectGroup(i) })) {
-                    Text(
-                        text = groups[i].name.take(maxNameLength) + (if (groups[i].name.length > maxNameLength) "..." else ""),
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                    EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(onClick = { onSelectGroup(i) })) {
+                    Text(text = groups[i].name, modifier = Modifier.align(Alignment.Center))
+                    EditIcon(Modifier
+                        .size(32.dp)
+                        .align(Alignment.CenterEnd)
+                        .offset((-8).dp, 0.dp))
                 }
             })
         }
@@ -124,7 +124,10 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.tertiaryContainer,RoundedCornerShape(CornerSize(8.dp)))
+                    .background(
+                        MaterialTheme.colorScheme.tertiaryContainer,
+                        RoundedCornerShape(CornerSize(8.dp))
+                    )
                     .clickable(onClick = { openCreateGroupDialog.value = true }),
 
             ) {
@@ -142,7 +145,9 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 
     Dialog(onDismissRequest = onDismissRequest) {
         Card(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
             shape = RoundedCornerShape(24.dp),
         ) {
             Column(Modifier.padding(24.dp)) {
@@ -180,378 +185,443 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit, deleteGroup: () -> Unit) {
     var editMade by remember { mutableStateOf(false) }
-
+    var editName by remember { mutableStateOf(false) }
+    var nameValue by remember(group) { mutableStateOf(group.name) }
     val editCalendarIndex = remember { mutableIntStateOf(-1) }
+    val errorMessage = remember { mutableStateOf(null as String?) }
+    val openCreateCalendarDialog = remember { mutableStateOf(false) }
+    val confirmGroupDelete = remember { mutableStateOf(false) }
+    val calendarList = remember(group) { group.calendars.toMutableStateList() }
+
     if (editCalendarIndex.intValue >= 0) {
-        return EditCalendar(
-            calendar = group.calendars[editCalendarIndex.intValue],
-            modifier = modifier,
-            onExit = { editCalendarIndex.intValue = -1; },
+        EditCalendar(
+            calendar = calendarList[editCalendarIndex.intValue],
+            onExit = { editCalendarIndex.intValue = -1 },
             onEdit = { calendar ->
-                group.calendars[editCalendarIndex.intValue] = calendar
+                calendarList[editCalendarIndex.intValue] = calendar
+                group.calendars = ArrayList(calendarList)
+                onEdit(group)
+            },
+            onDelete = {
+                calendarList.removeAt(editCalendarIndex.intValue)
+                group.calendars = ArrayList(calendarList)
                 onEdit(group)
             }
         )
     }
 
-    var editName by remember { mutableStateOf(false) }
-    val colors = LocalCalendarColors.current
-    Column(modifier = modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.size(16.dp))
-        var nameValue by remember { mutableStateOf(group.name) }
-        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName = true })) {
-            if (!editName) {
-                Text(text = nameValue, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
-                EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
-            } else {
-                Box(Modifier.fillMaxWidth()) {
-                    LimitedTextField(
-                        value = nameValue,
-                        onValueChange = { v ->
-                            editMade = (nameValue != v)
-                            nameValue = v
-                        },
-                        onDismissRequest = {
-                            editName = false
-                        },
-                        modifier = Modifier.align(Alignment.Center),
-                        textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
-                    )
-                    CloseIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
-                }
-            }
-        }
-        if (editMade) Row(Modifier.fillMaxWidth(), Arrangement.SpaceEvenly) {
-            Button(
-                onClick = {
-                    group.name = nameValue
-                    onEdit(group)
-                    editName = false
-                    editMade = false
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                SaveIcon(Modifier.size(24.dp))
-                Text("Save")
-            }
-
-            Button(
-                onClick = {
-                    nameValue = group.name
-                    editName = false
-                    editMade = false
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                CloseIcon(Modifier.size(24.dp))
-                Text("Cancel")
-            }
-        }
-        Spacer(modifier = Modifier.size(32.dp))
-
-        Text(text = "Calendars", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(5.0f,TextUnitType.Em))
-        Spacer(modifier = Modifier.size(10.dp))
-
-        val confirmCalendarDelete = remember { mutableStateOf(false) }
-        val calendarDeleteIndex = remember { mutableIntStateOf(-1) }
-        if (confirmCalendarDelete.value) ConfirmDialog(text = "Do you want to delete calendar \"${group.calendars[calendarDeleteIndex.intValue].name}\" from \"${group.name}\"? (This cannot be undone)", onSuccess = { group.calendars.removeAt(calendarDeleteIndex.intValue); confirmCalendarDelete.value = false } , onFail = { confirmCalendarDelete.value = false })
-
-        val items = ArrayList<@Composable () -> Unit>()
-
-        val errorMessage = remember { mutableStateOf(null as String?)}
-        if (errorMessage.value != null) ErrorMessage(errorMessage.value ?: "Unknown error") { errorMessage.value = null }
-
-        @Composable
-        fun AddCalendarDialog(
-            onDismissRequest: () -> Unit,
-            addCalender: (cal: Calendar) -> Unit,
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 70.dp)
         ) {
-            // State managed within the dialog
-            val showHelp = remember { mutableStateOf(false) }
+            Spacer(modifier = Modifier.size(16.dp))
 
-            // Logic for help dialog
-            if (showHelp.value) {
-                AddCalendarHelpDialog { showHelp.value = false }
-            }
-
-            Dialog(onDismissRequest = onDismissRequest) {
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(5.dp)
-                ) {
-                    Column(
+            // Edit group name
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(64.dp)
+                    .clickable(enabled = !editName) { editName = true },
+                contentAlignment = Alignment.Center
+            ) {
+                if (!editName) {
+                    Text(
+                        text = nameValue,
                         modifier = Modifier
-                            .padding(20.dp)
-                            .verticalScroll(rememberScrollState())
+                            .fillMaxWidth()
+                            .padding(horizontal = 40.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = TextUnit(7.0f, TextUnitType.Em),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    EditIcon(
+                        Modifier
+                            .size(28.dp)
+                            .align(Alignment.CenterEnd)
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Header Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Add Calendar",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.primary
+                        SuccessButton(
+                            onClick = {
+                                group.name = nameValue
+                                onEdit(group)
+                                editName = false
+                                editMade = false
+                            },
+                            modifier = Modifier.size(44.dp)
+                        )
+
+                        LimitedTextField(
+                            value = nameValue,
+                            onValueChange = { v ->
+                                editMade = (group.name != v)
+                                nameValue = v
+                            },
+                            onDismissRequest = { editName = false },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 4.dp),
+                            textStyle = TextStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = TextUnit(
+                                    6.5f,
+                                    TextUnitType.Em
+                                ), // Scaled down for edit mode
+                                textAlign = TextAlign.Center
                             )
-                            HelpIconButton(onClick = { showHelp.value = true })
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "Import via URL or select a local file (.ics, .zip)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // Unified Import UI
-                        UrlCalendarImport(
-                            onResult = { calendar ->
-                                if (calendar != null) addCalender(calendar)
-                                onDismissRequest()
+                        DismissButton(
+                            onClick = {
+                                nameValue = group.name
+                                editName = false
+                                editMade = false
                             },
-                            onError = { _ -> /* Handle error here if needed */ },
-                            onClose = onDismissRequest
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // File Import Section
-                        FileCalendarImport(
-                            onResult = { calendar ->
-                                if (calendar != null) addCalender(calendar)
-                                onDismissRequest()
-                            },
-                            onError = { _ -> /* Handle error here if needed */ }
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        DialogActionRow(
-                            onDismiss = onDismissRequest
+                            modifier = Modifier.size(44.dp)
                         )
                     }
                 }
             }
-        }
-        for (i in 0..<group.calendars.size) {
-            items.add({
-                Row(
-                    Modifier.fillMaxSize().padding(2.dp).clickable{ editCalendarIndex.intValue = i },
-                    Arrangement.SpaceBetween
-                ) {
-                    CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically), 25)
-                    Row {
-                        Box(
+
+            Spacer(modifier = Modifier.size(32.dp))
+
+            // Calendars header
+            Text(
+                text = "Calendars",
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = TextUnit(5.0f, TextUnitType.Em)
+            )
+            Spacer(modifier = Modifier.size(10.dp))
+
+            if (errorMessage.value != null) ErrorMessage(
+                errorMessage.value ?: "Unknown error"
+            ) { errorMessage.value = null }
+
+            // Add calendars to list
+            val calendarItems = ArrayList<@Composable () -> Unit>()
+            for (i in calendarList.indices) {
+                calendarItems.add({
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(2.dp)
+                            .clickable { editCalendarIndex.intValue = i },
+                        Arrangement.SpaceBetween
+                    ) {
+                        CalendarLegend(
+                            calendarList[i],
                             Modifier.align(Alignment.CenterVertically)
-                                .clickable { editCalendarIndex.intValue = i }
-                        ) {
-                            EditIcon(Modifier.align(Alignment.CenterStart).fillMaxHeight(0.66f))
-                        }
+                        )
                         Box(
-                            Modifier.align(Alignment.CenterVertically).clickable {
-                                calendarDeleteIndex.intValue = i; confirmCalendarDelete.value = true
-                            }
-                        ) {
-                            DeleteIcon(
-                                Modifier.align(Alignment.CenterEnd),
-                                LocalCalendarColors.current.calendarred
-                            )
+                            Modifier
+                                .align(Alignment.CenterVertically)
+                                .clickable { editCalendarIndex.intValue = i }) {
+                            EditIcon(Modifier
+                                .align(Alignment.CenterStart)
+                                .fillMaxHeight(0.66f))
                         }
                     }
+                })
+            }
+
+            if (openCreateCalendarDialog.value) {
+                AddCalendarDialog(
+                    onDismissRequest = { openCreateCalendarDialog.value = false },
+                    addCalender = { cal ->
+                        calendarList.add(cal)
+                        group.calendars = ArrayList(calendarList)
+                        onEdit(group)
+                    }
+                )
+            }
+
+            // Add calendar button to list
+            calendarItems.add({
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            MaterialTheme.colorScheme.tertiaryContainer,
+                            RoundedCornerShape(CornerSize(8.dp))
+                        )
+                        .clickable(
+                            onClick = { openCreateCalendarDialog.value = true }
+                        ),
+                ) {
+                    Text("Add new calendar", Modifier.align(Alignment.Center))
                 }
             })
-        }
-        val openCreateCalendarDialog = remember { mutableStateOf(false) }
-        if (openCreateCalendarDialog.value)
-            AddCalendarDialog(
-                onDismissRequest = { openCreateCalendarDialog.value = false },
-                addCalender = { cal ->
-                    group.calendars.add(cal)
-                    onEdit(group)
-                }
-            )
-        items.add({
-            Box(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(CornerSize(8.dp))).clickable(
-                    onClick = { openCreateCalendarDialog.value = true }
-                ),
-            ) {
-                Text("Add new calendar", Modifier.align(Alignment.Center))
-            }
-        })
-        ItemList(items, Modifier.fillMaxWidth().fillMaxHeight(0.90f))
 
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
-        ) {
-            val confirmCancel = remember { mutableStateOf(false) }
-            if (confirmCancel.value) ConfirmDialog(
-                text = "Do you want to save your changes?",
-                onSuccess = { group.name = nameValue; onEdit(group); confirmCancel.value = false; onExit() },
-                onFail = { confirmCancel.value = false; onExit() })
-            Button(
-                onClick = {
-                    if (editMade) confirmCancel.value = true
-                    else onExit()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                BackIcon(Modifier.size(24.dp))
-                Text("Exit")
+            // List of calendars and add calendar button
+            ItemList(calendarItems, Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.90f))
+
             }
-            val confirmGroupDelete = remember { mutableStateOf(false) }
-            if (confirmGroupDelete.value)
+        Row(
+            modifier = Modifier
+                .align(BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            // Delete button
+            DeleteButton(onClick = { confirmGroupDelete.value = true })
+
+            // Exit button
+            SuccessButton(onClick = { onExit() })
+
+            if (confirmGroupDelete.value) {
                 ConfirmDialog(
-                    text = "Do you want to delete group \"${group.name}\"? (This cannot be undone)",
-                    onSuccess = { confirmGroupDelete.value = false; deleteGroup() },
+                    text = "Delete group \"${group.name}\"?\nThis will delete all associated calendars and cannot be undone.",
+                    onSuccess = {
+                        confirmGroupDelete.value = false
+                        deleteGroup()
+                    },
                     onFail = { confirmGroupDelete.value = false }
                 )
-            Button(
-                onClick = {
-                    confirmGroupDelete.value = true
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.calendarred,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                DeleteIcon(Modifier.size(24.dp))
-                Text("Delete group")
             }
         }
     }
 }
 
 @Composable
-fun EditCalendar(calendar: Calendar, modifier: Modifier, onExit: () -> Unit, onEdit: (calendar: Calendar) -> Unit) {
-    var editMade by remember { mutableStateOf(false) }
+fun AddCalendarDialog(
+    onDismissRequest: () -> Unit,
+    addCalender: (cal: Calendar) -> Unit,
+) {
+    val showHelp = remember { mutableStateOf(false) }
+    val errorMessage = remember { mutableStateOf(null as String?)}
 
-    val confirmCancel = remember { mutableStateOf(false) }
-    if (confirmCancel.value) ConfirmDialog(text = "Are you sure you want to exit without saving your changes?", onSuccess = { onExit(); confirmCancel.value = false } , onFail = { confirmCancel.value = false })
-    fun close() {
-        if (editMade) confirmCancel.value = true
-        else onExit()
+    if (errorMessage.value != null) {
+        ErrorMessage(
+            message = errorMessage.value!!,
+            onDismiss = { errorMessage.value = null }
+        )
     }
 
-    var editName by remember { mutableStateOf(false) }
-    Column(modifier = modifier.fillMaxSize()) {
-        Spacer(modifier = Modifier.size(16.dp))
-        var nameValue by remember { mutableStateOf(calendar.name) }
-        Box(Modifier.fillMaxWidth()) {
-            CloseIconButton(
-                Modifier.size(32.dp).align(Alignment.TopStart).offset((-8).dp, 0.dp),
-                onClick = { close() }
-            )
-        }
+    if (showHelp.value) {
+        AddCalendarHelpDialog { showHelp.value = false }
+    }
 
-        Box(modifier = Modifier.fillMaxWidth().clickable(onClick = { editName = true })) {
-            if (!editName) {
-                Text(text = nameValue, modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
-                EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
-            } else {
+    Dialog(onDismissRequest = onDismissRequest) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(5.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Add Calendar",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    HelpIconButton(onClick = { showHelp.value = true })
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Import via URL or select a local file (.ics, .zip)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                UrlCalendarImport(
+                    onResult = { calendar ->
+                        if (calendar != null) addCalender(calendar)
+                        onDismissRequest()
+                    },
+                    onError = { msg -> errorMessage.value = msg },
+                    onClose = onDismissRequest
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // File Import Section
+                FileCalendarImport(
+                    onResult = { calendar ->
+                        if (calendar != null) addCalender(calendar)
+                        onDismissRequest()
+                    },
+                    onError = { msg -> errorMessage.value = msg }
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                DialogActionRow(
+                    onDismiss = onDismissRequest
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun EditCalendar(
+    calendar: Calendar,
+    onExit: () -> Unit,
+    onEdit: (calendar: Calendar) -> Unit,
+    onDelete: () -> Unit
+) {
+    var nameValue by remember { mutableStateOf(calendar.name) }
+    var editMade by remember { mutableStateOf(false) }
+    var showColorPicker by remember { mutableStateOf(false) }
+
+    // Confirmations
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showUnsavedConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        ConfirmDialog(
+            text = "Delete \"${calendar.name}\"? This cannot be undone.",
+            onSuccess = {
+                showDeleteConfirm = false
+                onDelete()
+                onExit()
+            },
+            onFail = { showDeleteConfirm = false }
+        )
+    }
+
+    if (showUnsavedConfirm) {
+        ConfirmDialog(
+            text = "Exit without saving changes?",
+            onSuccess = {
+                showUnsavedConfirm = false
+                onExit()
+            },
+            onFail = { showUnsavedConfirm = false }
+        )
+    }
+
+    Dialog(onDismissRequest = { if (editMade) showUnsavedConfirm = true else onExit() }) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Edit Calendar", style = MaterialTheme.typography.headlineSmall)
+
+                Spacer(Modifier.height(20.dp))
+
+                // Name Input
                 LimitedTextField(
                     value = nameValue,
-                    onValueChange = { v ->
-                        editMade = (nameValue != v)
-                        nameValue = v
+                    onValueChange = {
+                        nameValue = it
+                        editMade = true
                     },
-                    onDismissRequest = {
-                        editName = false
-                    },
-                    modifier = Modifier.align(Alignment.Center),
-                    textStyle = TextStyle(color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(6.0f,TextUnitType.Em))
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = TextStyle(
+                        textAlign = TextAlign.Center,
+                        fontSize = TextUnit(6.0f, TextUnitType.Em),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 )
-                SaveIconButton(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp), onClick = { editName = false })
-            }
-        }
-        Spacer(modifier = Modifier.size(32.dp))
 
-        val editColorDialog = remember { mutableStateOf(false) }
-        Row(Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(0.8f).height(64.dp), horizontalArrangement = Arrangement.Center) {
-            Text(text = "Color: ", modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(5.0f,TextUnitType.Em))
-            Box(Modifier.fillMaxHeight().aspectRatio(1.0f).background(color = calendar.color, shape = CircleShape).padding(16.dp, 2.dp).clickable{ editColorDialog.value = true }) {}
-        }
-        if (editColorDialog.value) {
-            Dialog({ editColorDialog.value = false }) {
-                Card(
+                Spacer(Modifier.height(24.dp))
+
+                // Color Selection Row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.7f)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(16.dp)
+                        .padding(vertical = 12.dp), // Vertical padding for breathing room
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ColorPicker(calendar.color, onEdit = { color -> calendar.color = color; editMade = true }, onExit = { editColorDialog.value = false })
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp) // Increased size to match your FABs/Buttons
+                            .background(calendar.color, CircleShape)
+                            .border(
+                                width = 1.5.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                            .clickable { showColorPicker = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Using a standard Icon here to ensure scaling works as expected
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Change Color",
+                            modifier = Modifier.size(24.dp),
+                            // Automatic contrast check
+                            tint = if (calendar.color.luminance() > 0.5f) Color.Black else Color.White
+                        )
+                    }
                 }
-            }
-        }
-        Spacer(modifier = Modifier.size(10.dp))
 
-        var confirmCancel by remember { mutableStateOf(false) }
-        if (confirmCancel) ConfirmDialog(
-            text = "Do you want to save your changes?",
-            onSuccess = { calendar.name = nameValue; onEdit(calendar); confirmCancel = false; onExit() },
-            onFail = { confirmCancel = false; onExit() }
-        )
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
-        ) {
-            Button(
-                onClick = {
-                    calendar.name = nameValue
-                    onEdit(calendar)
-                    onExit()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                SaveIcon(Modifier.size(24.dp))
-                Text("Save")
-            }
+                if (showColorPicker) {
+                    Dialog(onDismissRequest = { showColorPicker = false }) {
+                        Card(shape = RoundedCornerShape(16.dp)) {
+                            ColorPicker(
+                                calendar.color,
+                                onEdit = { color ->
+                                    calendar.color = color
+                                    editMade = true
+                                },
+                                onExit = { showColorPicker = false }
+                            )
+                        }
+                    }
+                }
 
-            Button(
-                onClick = {
-                    if (editMade) confirmCancel = true
-                    else close()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                CloseIcon(Modifier.size(24.dp))
-                Text("Cancel")
-            }
+                Spacer(Modifier.height(32.dp))
 
+                DialogActionRow(
+                    onDismiss = { if (editMade) showUnsavedConfirm = true else onExit() },
+                    onDelete = { showDeleteConfirm = true },
+                    onConfirm = {
+                        // Create a new object instead of modifying the old one to get compose to notice the change
+                        val updatedCalendar = Calendar(
+                            name = nameValue,
+                            color = calendar.color,
+                            dates = calendar.dates
+                        )
+                        onEdit(updatedCalendar)
+                        onExit()
+                    }
+                )
+            }
         }
     }
 }
@@ -618,143 +688,42 @@ fun HelpIconButton(
     }
 }
 
-
-@Composable
-fun DeleteIcon(modifier: Modifier = Modifier, color: Color? = null) {
-    Box(
-        modifier
-            .aspectRatio(0.8f)
-            .padding(5.dp),
-        Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.Delete,
-            "Delete",
-            Modifier.fillMaxSize(),
-            color ?: MaterialTheme.colorScheme.secondary
-        )
-    }
-}
-
-@Composable
-fun SaveIcon(modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .aspectRatio(1f)
-            .padding(2.dp),
-        Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.CheckCircle,
-            "Save",
-            Modifier.fillMaxSize(),
-            MaterialTheme.colorScheme.secondary
-        )
-    }
-}
-
-@Composable
-fun SaveIconButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier) {
-        Icon(
-            Icons.Default.Check,
-            "Save",
-        )
-    }
-}
-
-@Composable
-fun BackIcon(modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .aspectRatio(1f)
-            .padding(2.dp),
-        Alignment.Center
-    ) {
-        Icon(
-            Icons.AutoMirrored.Default.ExitToApp,
-            "Back",
-            Modifier.fillMaxSize(),
-            MaterialTheme.colorScheme.secondary
-        )
-    }
-}
-
-@Composable
-fun CloseIcon(modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .aspectRatio(1f)
-            .padding(2.dp),
-        Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.Close,
-            "Cancel",
-            Modifier.fillMaxSize(),
-            MaterialTheme.colorScheme.secondary
-        )
-    }
-}
-
-@Composable
-fun CloseIconButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier) {
-        Icon(
-            Icons.Default.Close,
-            "Cancel",
-
-        )
-    }
-}
-
 @Composable
 fun ConfirmDialog(text: String, onSuccess: () -> Unit, onFail: () -> Unit) {
-    val colors = LocalCalendarColors.current
-    Dialog(onDismissRequest = { }) {
+    Dialog(onDismissRequest = { onFail() }) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
-            shape = RoundedCornerShape(16.dp),
-        )  {
-            Spacer(modifier = Modifier.size(16.dp))
-            Box(Modifier.fillMaxWidth(0.8f).align(Alignment.CenterHorizontally)) {
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Text(
                     text = text,
-                    modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
-                    fontSize = TextUnit(4.0f, TextUnitType.Em)
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                DialogActionRow(
+                    onDismiss = onFail,
+                    onDelete = onSuccess
                 )
             }
-            Spacer(modifier = Modifier.size(16.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(0.9f).align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterVertically)
-                        .background(
-                            color = colors.calendarred,
-                            shape = RoundedCornerShape(CornerSize(16.dp)),
-                        )
-                        .padding(10.dp, 4.dp)
-                        .clickable { onSuccess() }
-                ) {
-                    Text("Yes")
-                }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterVertically)
-                        .background(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = RoundedCornerShape(CornerSize(16.dp)),
-                        )
-                        .padding(10.dp, 4.dp)
-                        .clickable { onFail() }
-                ) {
-                    Text("No")
-                }
-            }
-            Spacer(modifier = Modifier.size(16.dp))
         }
     }
 }

@@ -15,9 +15,7 @@ import java.time.LocalDate
 
 @Serializable
 class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializable {
-    fun isDateTimeWithInEvent(date: LocalDateTime) : Boolean {
-        return (start.isBefore(date) || start == date) && (end.isAfter(date) || end == date)
-    }
+
 
     fun isDateTimeWithInEvent(date: LocalDate) : Boolean {
         val endDate = end.minusMinutes(1).toLocalDate()
@@ -49,7 +47,7 @@ class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializ
 }
 
 @Serializable
-class Calendar(var name: String, var color: Color, var dates: ArrayList<Event>) : java.io.Serializable {}
+class Calendar(var name: String, var color: Color, var dates: ArrayList<Event>) : java.io.Serializable
 
 fun importZippedIcal(input: InputStream) : ArrayList<Calendar> {
     val calendars = ArrayList<Calendar>()

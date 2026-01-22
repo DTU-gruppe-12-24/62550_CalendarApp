@@ -36,7 +36,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
-import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -184,25 +183,41 @@ fun UrlCalendarImport(
             onClick = {
                 scope.launch {
                     try {
+                        if (!url.startsWith("http") && !url.startsWith("webcal")) {
+                            throw Exception("Invalid URL format. Please include 'http://', 'https://' or 'webcal://'")
+                        }
+
                         val normalized = normalizeWebcalUrl(url)
 
                         val policy = ThreadPolicy.Builder().permitAll().build()
                         StrictMode.setThreadPolicy(policy)
 
-                        val input = withContext(Dispatchers.IO) {
-                            downloadIcs(normalized)
-                        }
+                        // Download so we can try reading multiple times
+                        val bytes = withContext(Dispatchers.IO) { downloadIcs(normalized) }
+                        if (bytes.isEmpty()) throw Exception("The downloaded file is empty.")
+                        val input = bytes.inputStream()
+
+                        var resultCalendar: Calendar? = null
+
+                        // Try reading as .ics
                         try {
-                            val calendar = importIcal(input)
-                            onResult(calendar)
+                            resultCalendar = importIcal(input)
                         } catch(_: Exception) {
-                            val calendars = importZippedIcal(input)
-                            onResult(combineCalendars(calendars))
+                        // Try reading as .zip
+                        val calendars = importZippedIcal(input)
+                        if (calendars.isNotEmpty()) {
+                            resultCalendar = combineCalendars(calendars)
                         }
-                        onClose()
+                        }
+                        if (resultCalendar != null && resultCalendar.dates.isNotEmpty()) {
+                            onResult(resultCalendar)
+                            onClose()
+                        } else {
+                            throw Exception("The link does not contain a valid .ics or .zip calendar file.")
+                        }
                     } catch (e: Exception) {
                         Log.e("UrlCalendarImport", "Failed to import", e)
-                        onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
+                        onError(e.message ?: e.toString())
                     }
                 }
             },
@@ -216,12 +231,13 @@ fun UrlCalendarImport(
 
 
 fun combineCalendars(calendars: ArrayList<Calendar>): Calendar {
+    if (calendars.isEmpty()) throw Exception("No calendars found to combine.")
+    if (calendars.size == 1) return calendars[0]
+
     return Calendar(
-        calendars[0].name, calendars[0].color,
-        calendars.reduce { combined, cal ->
-            combined.dates.addAll(cal.dates)
-            combined
-        }.dates
+        calendars[0].name,
+        calendars[0].color,
+        calendars.flatMap { it.dates }.toCollection(ArrayList())
     )
 }
 
@@ -233,7 +249,7 @@ fun normalizeWebcalUrl(url: String): String =
     }
 
 
-fun downloadIcs(url: String): InputStream {
+suspend fun downloadIcs(url: String): ByteArray = withContext(Dispatchers.IO) {
     val connection = URL(url).openConnection() as HttpURLConnection
     connection.connectTimeout = 15_000
     connection.readTimeout = 60_000
@@ -244,5 +260,5 @@ fun downloadIcs(url: String): InputStream {
         throw IOException("HTTP ${connection.responseCode}")
     }
 
-    return connection.inputStream
+    connection.inputStream.use { it.readBytes() }
 }

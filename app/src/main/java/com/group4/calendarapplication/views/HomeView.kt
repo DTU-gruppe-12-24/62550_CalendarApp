@@ -258,16 +258,14 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        SuccessButton(
+                        DismissButton(
                             onClick = {
-                                group.name = nameValue
-                                onEdit(group)
+                                nameValue = group.name
                                 editName = false
                                 editMade = false
                             },
                             modifier = Modifier.size(44.dp)
                         )
-
                         LimitedTextField(
                             value = nameValue,
                             onValueChange = { v ->
@@ -287,10 +285,10 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                                 textAlign = TextAlign.Center
                             )
                         )
-
-                        DismissButton(
+                        SuccessButton(
                             onClick = {
-                                nameValue = group.name
+                                group.name = nameValue
+                                onEdit(group)
                                 editName = false
                                 editMade = false
                             },

@@ -170,13 +170,13 @@ fun importIcal(input: InputStream) : Calendar {
                         } else if (count > 0) {
                             startDate + offset.multipliedBy(count.toLong())
                         } else {
-                            Log.w("CalendarImport","Invalid ical: Can't repeat without a COUNT or UNTIL key. At line $lineIndex.")
-                            continue
+                            // No end date, add dates within the next 2 years
+                            startDate.plusYears(2)
                         }
 
                         var date: LocalDateTime = startDate
                         if (values["FREQ"] == "WEEKLY" && values.contains("BYDAY") && !values.contains("INTERVAL")) {
-                            while (date <= until && (count > 0 && repeatedDates.size < count)) {
+                            while (date <= until || (count > 0 && repeatedDates.size < count)) {
                                 // Check if date is filtered out
                                 var valid = true
                                 if (!(values["BYYEAR"]?.contains(date.year.toString()) ?: true)) valid = false

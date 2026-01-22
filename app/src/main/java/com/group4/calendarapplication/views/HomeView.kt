@@ -102,7 +102,7 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
             .padding(bottom = 128.dp)
@@ -189,27 +189,26 @@ fun AddGroupDialog(onDismissRequest: () -> Unit) {
 
 @Composable
 fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (group: Group) -> Unit, deleteGroup: () -> Unit) {
-    var editMade by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf(false) }
     var nameValue by remember(group) { mutableStateOf(group.name) }
-    val editCalendarIndex = remember { mutableIntStateOf(-1) }
-    val errorMessage = remember { mutableStateOf(null as String?) }
-    val openCreateCalendarDialog = remember { mutableStateOf(false) }
-    val confirmGroupDelete = remember { mutableStateOf(false) }
+    var editCalendarIndex by remember { mutableIntStateOf(-1) }
+    var errorMessage by remember { mutableStateOf(null as String?) }
+    var openCreateCalendarDialog by remember { mutableStateOf(false) }
+    var confirmGroupDelete by remember { mutableStateOf(false) }
     val calendarList = remember(group) { group.calendars.toMutableStateList() }
     val scrollState = rememberScrollState()
 
-    if (editCalendarIndex.intValue >= 0) {
+    if (editCalendarIndex >= 0) {
         EditCalendar(
-            calendar = calendarList[editCalendarIndex.intValue],
-            onExit = { editCalendarIndex.intValue = -1 },
+            calendar = calendarList[editCalendarIndex],
+            onExit = { editCalendarIndex = -1 },
             onEdit = { calendar ->
-                calendarList[editCalendarIndex.intValue] = calendar
+                calendarList[editCalendarIndex] = calendar
                 group.calendars = ArrayList(calendarList)
                 onEdit(group)
             },
             onDelete = {
-                calendarList.removeAt(editCalendarIndex.intValue)
+                calendarList.removeAt(editCalendarIndex)
                 group.calendars = ArrayList(calendarList)
                 onEdit(group)
             }
@@ -262,14 +261,12 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                             onClick = {
                                 nameValue = group.name
                                 editName = false
-                                editMade = false
                             },
                             modifier = Modifier.size(44.dp)
                         )
                         LimitedTextField(
                             value = nameValue,
                             onValueChange = { v ->
-                                editMade = (group.name != v)
                                 nameValue = v
                             },
                             onDismissRequest = { editName = false },
@@ -290,7 +287,6 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                                 group.name = nameValue
                                 onEdit(group)
                                 editName = false
-                                editMade = false
                             },
                             modifier = Modifier.size(44.dp)
                         )
@@ -309,9 +305,9 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             )
             Spacer(modifier = Modifier.size(10.dp))
 
-            if (errorMessage.value != null) ErrorMessage(
-                errorMessage.value ?: "Unknown error"
-            ) { errorMessage.value = null }
+            if (errorMessage != null) ErrorMessage(
+                errorMessage ?: "Unknown error"
+            ) { errorMessage = null }
 
             // Add calendars to list
             val calendarItems = ArrayList<@Composable () -> Unit>()
@@ -321,7 +317,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                         Modifier
                             .fillMaxSize()
                             .padding(2.dp)
-                            .clickable { editCalendarIndex.intValue = i },
+                            .clickable { editCalendarIndex = i },
                         Arrangement.SpaceBetween
                     ) {
                         CalendarLegend(
@@ -331,7 +327,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                         Box(
                             Modifier
                                 .align(Alignment.CenterVertically)
-                                .clickable { editCalendarIndex.intValue = i }) {
+                                .clickable { editCalendarIndex = i }) {
                             EditIcon(Modifier
                                 .align(Alignment.CenterStart)
                                 .fillMaxHeight(0.66f))
@@ -340,9 +336,9 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                 })
             }
 
-            if (openCreateCalendarDialog.value) {
+            if (openCreateCalendarDialog) {
                 AddCalendarDialog(
-                    onDismissRequest = { openCreateCalendarDialog.value = false },
+                    onDismissRequest = { openCreateCalendarDialog = false },
                     addCalender = { cal ->
                         calendarList.add(cal)
                         group.calendars = ArrayList(calendarList)
@@ -361,7 +357,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                             RoundedCornerShape(CornerSize(8.dp))
                         )
                         .clickable(
-                            onClick = { openCreateCalendarDialog.value = true }
+                            onClick = { openCreateCalendarDialog = true }
                         ),
                 ) {
                     Text("Add new calendar", Modifier.align(Alignment.Center))
@@ -372,8 +368,19 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             ItemList(calendarItems, Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.90f))
+        }
 
-            }
+        if (confirmGroupDelete) {
+            ConfirmDialog(
+                text = "Delete \"${group.name}\"? This cannot be undone.",
+                onSuccess = {
+                    confirmGroupDelete = false
+                    deleteGroup()
+                },
+                onFail = { confirmGroupDelete = false }
+            )
+        }
+
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -382,7 +389,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            DeleteButton(onClick = { confirmGroupDelete.value = true })
+            DeleteButton(onClick = { confirmGroupDelete = true })
             SuccessButton(onClick = { onExit() })
         }
     }

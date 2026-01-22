@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -65,6 +67,10 @@ fun ColorPicker(color: Color, onEdit: (color: Color) -> Unit, onExit: () -> Unit
 
         Button(
             onClick = { onEdit(controller.selectedColor.value); onExit() },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.primary
+            ),
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
             SaveIcon(Modifier.size(24.dp))

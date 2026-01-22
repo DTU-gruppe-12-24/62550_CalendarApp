@@ -49,7 +49,7 @@ class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializ
 }
 
 @Serializable
-class Calendar(val name: String, val color: Color, var dates: ArrayList<Event>) : java.io.Serializable {}
+class Calendar(var name: String, var color: Color, var dates: ArrayList<Event>) : java.io.Serializable {}
 
 fun importZippedIcal(input: InputStream) : ArrayList<Calendar> {
     val calendars = ArrayList<Calendar>()

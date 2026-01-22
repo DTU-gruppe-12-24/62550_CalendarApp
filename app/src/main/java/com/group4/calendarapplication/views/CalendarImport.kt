@@ -5,6 +5,8 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.StrictMode
+import android.os.StrictMode.ThreadPolicy
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContract
@@ -41,6 +43,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+
 
 class GetCustomContents(
     private val isMultiple: Boolean = false, //This input check if the select file option is multiple or not
@@ -90,7 +93,7 @@ class GetCustomContents(
 }
 
 @Composable
-fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
+fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit, onError: (msg: String) -> Unit) {
     val context = LocalContext.current
 
     val filePicker = rememberLauncherForActivityResult(
@@ -109,8 +112,13 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
                 when (fileType) {
                     // If file is '.ics':
                     "text/calendar" -> {
-                        val calendar = importIcal(input)
-                        onResult(calendar)
+                        try {
+                            val calendar = importIcal(input)
+                            onResult(calendar)
+                        } catch (e: Exception) {
+                            Log.e("CalendarImport", "Failed to import calendar with error: $e")
+                            onError("Failed to import calendar with error: ${e.message ?: e.toString()}")
+                        }
                     }
                     // If file is '.zip':
                     "application/zip" -> {
@@ -120,19 +128,20 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
                             if (calendars.isEmpty()) return@forEach
 
                             // Combine all calendars from zip into one
-                            val calendar = Calendar(
-                                calendars[0].name, calendars[0].color,
-                                calendars.reduce { combined, cal ->
-                                    combined.dates.addAll(cal.dates)
-                                    combined
-                                }.dates
-                            )
+                            val calendar = combineCalendars(calendars)
+
                             // Update upstream calendar
                             onResult(calendar)
                         } catch (e: Exception) {
-                            Log.e("CalendarImport", "Failed to import calendar(s) with error: $e")
-                            throw e
+                            Log.e("CalendarImport", "Failed to import calendars with error: $e")
+                            onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
+                            return@forEach
                         }
+                    }
+                    else -> {
+                        Log.e("CalendarImport", "Unknown file type selected for calendar import.")
+                        onError("Unknown file type selected for calendar import: Only .ics or .zip files are supported.")
+                        return@forEach
                     }
                 }
             }
@@ -148,7 +157,8 @@ fun FileCalendarImport(onResult: (calendar: Calendar?) -> Unit) {
 @Composable
 fun UrlCalendarImport(
     onResult: (Calendar?) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onError: (msg: String) -> Unit,
 ) {
     var url by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -189,15 +199,24 @@ fun UrlCalendarImport(
                     scope.launch {
                         try {
                             val normalized = normalizeWebcalUrl(url)
+
+                            val policy = ThreadPolicy.Builder().permitAll().build()
+                            StrictMode.setThreadPolicy(policy)
+
                             val input = withContext(Dispatchers.IO) {
                                 downloadIcs(normalized)
                             }
-                            val calendar = importIcal(input)
-                            onResult(calendar)
+                            try {
+                                val calendar = importIcal(input)
+                                onResult(calendar)
+                            } catch(_: Exception) {
+                                val calendars = importZippedIcal(input)
+                                onResult(combineCalendars(calendars))
+                            }
                             onClose()
                         } catch (e: Exception) {
                             Log.e("UrlCalendarImport", "Failed to import", e)
-                            onResult(null)
+                            onError("Failed to import calendar(s) with error: ${e.message ?: e.toString()}")
                         }
                     }
                 }
@@ -206,6 +225,16 @@ fun UrlCalendarImport(
             }
         }
     }
+}
+
+fun combineCalendars(calendars: ArrayList<Calendar>): Calendar {
+    return Calendar(
+        calendars[0].name, calendars[0].color,
+        calendars.reduce { combined, cal ->
+            combined.dates.addAll(cal.dates)
+            combined
+        }.dates
+    )
 }
 
 fun normalizeWebcalUrl(url: String): String =
@@ -219,7 +248,7 @@ fun normalizeWebcalUrl(url: String): String =
 fun downloadIcs(url: String): InputStream {
     val connection = URL(url).openConnection() as HttpURLConnection
     connection.connectTimeout = 15_000
-    connection.readTimeout = 15_000
+    connection.readTimeout = 60_000
     connection.requestMethod = "GET"
     connection.connect()
 

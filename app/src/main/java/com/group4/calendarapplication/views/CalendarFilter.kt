@@ -1,340 +1,608 @@
 package com.group4.calendarapplication.views
 
+import android.app.TimePickerDialog
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.group4.calendarapplication.domain.filter.FilterQuery
 import com.group4.calendarapplication.models.Calendar
+import com.group4.calendarapplication.viewmodel.DurationUnit
+import com.group4.calendarapplication.domain.filter.AvailabilityEngine
 import java.time.DayOfWeek
-
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun CalendarFilterBar(
     calendars: List<Calendar>,
-    modifier: Modifier = Modifier
+    filterQuery: FilterQuery,
+    onFilterChange: (FilterQuery) -> Unit,
+    onJumpToDate: (LocalDateTime) -> Unit
 ) {
+    // State for controlling which dialog is open
     var showParticipants by remember { mutableStateOf(false) }
-    var showTimeFilter by remember { mutableStateOf(false) }
+    var showTime by remember { mutableStateOf(false) }
+    var showNextSlotsDialog by remember { mutableStateOf(false) }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        elevation = CardDefaults.cardElevation(6.dp),
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
+            // Top Row: Title, Find Slot, and Clear
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Filters", style = MaterialTheme.typography.titleMedium)
 
-            Text(
-                text = "Filters",
-                style = MaterialTheme.typography.titleMedium
-            )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (filterQuery.isActive) {
+                        Button(
+                            onClick = { showNextSlotsDialog = true },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        ) {
+                            Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Find Slot")
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        TextButton(onClick = { onFilterChange(FilterQuery()) }) {
+                            Text("Clear All", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    label = "Participants",
-                    onClick = { showParticipants = true }
-                )
 
-                FilterChip(
-                    label = "Time & days",
-                    onClick = { showTimeFilter = true }
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterButton("Participants") { showParticipants = true }
+                FilterButton("Time & days") { showTime = true }
             }
         }
+    }
+
+    if (showNextSlotsDialog) {
+        NextSlotsDialog(
+            calendars = calendars,
+            filterQuery = filterQuery,
+            onDismiss = { showNextSlotsDialog = false },
+            onSlotClick = { dateTime ->
+                onJumpToDate(dateTime)
+                showNextSlotsDialog = false
+            }
+        )
     }
 
     if (showParticipants) {
         ParticipantSelectorDialog(
             calendars = calendars,
+            selected = filterQuery.requiredCalendars,
+            onConfirm = {
+                onFilterChange(filterQuery.copy(requiredCalendars = it))
+                showParticipants = false
+            },
             onDismiss = { showParticipants = false }
         )
     }
 
-    if (showTimeFilter) {
+    if (showTime) {
         TimeAndWeekdaySelectorDialog(
-            onDismiss = { showTimeFilter = false }
+            filterQuery = filterQuery,
+            onApply = {
+                onFilterChange(it)
+                showTime = false
+            },
+            onDismiss = { showTime = false }
         )
     }
 }
-
-
 
 @Composable
-fun FilterChip(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        ),
+private fun FilterButton(text: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(50),
-        elevation = CardDefaults.cardElevation(2.dp)
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 3.dp
     ) {
         Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            style = MaterialTheme.typography.labelMedium
+            text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
         )
     }
 }
-
 
 @Composable
 fun ParticipantSelectorDialog(
     calendars: List<Calendar>,
+    selected: Set<Calendar>,
+    onConfirm: (Set<Calendar>) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var selected by remember { mutableStateOf(calendars.toSet()) }
+    var localSelected by remember { mutableStateOf(selected) }
+    val allSelected = localSelected.size == calendars.size && calendars.isNotEmpty()
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Card(shape = RoundedCornerShape(16.dp)) {
             Column(Modifier.padding(16.dp)) {
-
-                Text(
-                    text = "Participants",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                calendars.forEach { calendar ->
-                    ParticipantRow(
-                        calendar = calendar,
-                        selected = calendar in selected,
-                        onClick = {
-                            selected =
-                                if (calendar in selected)
-                                    selected - calendar
-                                else
-                                    selected + calendar
-                        }
-                    )
-                    Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Participants", style = MaterialTheme.typography.titleLarge)
+                    TextButton(onClick = {
+                        localSelected = if (allSelected) emptySet() else calendars.toSet()
+                    }) {
+                        Text(if (allSelected) "Deselect All" else "Select All")
+                    }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+                Column(
+                    Modifier.fillMaxWidth()
+                        .weight(1f, fill = false) // Allow scrolling if list is long
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Done")
+                    calendars.forEach { calendar ->
+                        val isSelected = calendar in localSelected
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clickable {
+                                    localSelected = if (isSelected) localSelected - calendar
+                                    else localSelected + calendar
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(checked = isSelected, onCheckedChange = null)
+                            Box(Modifier.weight(1f)) {
+                                CalendarLegend(calendar, Modifier.fillMaxWidth())
+                            }
+                        }
                     }
+                }
+
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { onConfirm(localSelected) }) { Text("Confirm") }
                 }
             }
         }
     }
 }
 
-
-
-@Composable
-private fun ParticipantRow(
-    calendar: Calendar,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (selected)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                else Color.Transparent
-            )
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Card(
-            shape = CircleShape,
-            modifier = Modifier.size(14.dp),
-            colors = CardDefaults.cardColors(calendar.color),
-        ) {}
-
-        Text(
-            text = calendar.name,
-            modifier = Modifier.padding(start = 8.dp).weight(1f)
-        )
-
-        if (selected) {
-            Icon(
-                Icons.Default.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-    }
-}
-
-
-
-
-
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TimeAndWeekdaySelectorDialog(
+    filterQuery: FilterQuery,
+    onApply: (FilterQuery) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    var localQuery by remember { mutableStateOf(filterQuery) }
+    var startMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.start ?: (9 * 60)) }
+    var endMinutes by remember { mutableIntStateOf(filterQuery.timeWindow?.endInclusive ?: (17 * 60)) }
+    val totalMinutes = filterQuery.minDurationMinutes ?: 0
+
+    // Determine unit and display amount based on stored totalMinutes
+    var selectedUnit by remember {
+        mutableStateOf(
+            if (totalMinutes > 0 && totalMinutes % 60 == 0) DurationUnit.HOURS
+            else DurationUnit.MINUTES
+        )
+    }
+
+    var durationAmount by remember {
+        mutableStateOf(
+            if (totalMinutes == 0) ""
+            else if (selectedUnit == DurationUnit.HOURS) (totalMinutes / 60).toString()
+            else totalMinutes.toString()
+        )
+    }
+
+    fun showNativePicker(isStart: Boolean) {
+        val initialTotal = if (isStart) startMinutes else endMinutes
+
+        TimePickerDialog(context, { _, hour, minute ->
+            val total = hour * 60 + minute
+            if (isStart) {
+                startMinutes = total
+            } else {
+                endMinutes = total
+            }
+        }, initialTotal / 60, initialTotal % 60, true).show()
+    }
+
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    "Availability filter",
-                    style = MaterialTheme.typography.titleMedium
-                )
+        Card(shape = RoundedCornerShape(16.dp)) {
+            Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
+                Text("Filter Parameters", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(20.dp))
 
-                WeekdaySelector()
-
-                TimeIntervalSection(
-                    label = "Time interval",
-                    start = "18:00",
-                    end = "24:00"
-                )
-
-                DurationSection(
-                    duration = "2 hours"
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Done")
+                // Days
+                Text("Available Days of the Week", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                WeekdaySelector(
+                    selected = localQuery.weekdays,
+                    onToggle = { day ->
+                        val newDays = if (day in localQuery.weekdays)
+                            localQuery.weekdays - day else localQuery.weekdays + day
+                        localQuery = localQuery.copy(weekdays = newDays)
                     }
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // Time Window
+                TimeIntervalSection(
+                    label = "Daily Time Window Availability",
+                    start = startMinutes.toTimeString(),
+                    end = endMinutes.toTimeString(),
+                    onStartClick = { showNativePicker(isStart = true) },
+                    onEndClick = { showNativePicker(isStart = false) }
+                )
+                Text(
+                    "Only suggests slots between these hours.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // Duration
+                DurationInputSection(
+                    amount = durationAmount,
+                    onAmountChange = { durationAmount = it },
+                    selectedUnit = selectedUnit,
+                    onUnitSelection = { selectedUnit = it }
+                )
+
+                Spacer(Modifier.height(32.dp))
+
+                // Buttons
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val amountDouble = durationAmount.replace(',', '.').toDoubleOrNull() ?: 0.0
+                            val calculatedMinutes = when (selectedUnit) {
+                                DurationUnit.MINUTES -> amountDouble.toInt()
+                                DurationUnit.HOURS -> (amountDouble * 60).toInt()
+                            }.coerceAtMost(1440) // Hard cap at 24 hours
+
+                            onApply(
+                                localQuery.copy(
+                                    timeWindow = startMinutes..endMinutes,
+                                    minDurationMinutes = if (calculatedMinutes > 0) calculatedMinutes else null
+                                )
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) { Text("Apply Filters") }
                 }
             }
         }
     }
 }
 
-@Composable
-fun DurationSection(
-    duration: String,
-    onClick: () -> Unit = { /* Implementation */ }
-) {
-    Column {
-        Text("Minimum duration", style = MaterialTheme.typography.labelMedium)
-
-        Spacer(Modifier.height(6.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .clickable { onClick() }
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(duration)
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-        }
-    }
-}
-
-
-@Composable
-fun WeekdaySelector(
-    selected: Set<DayOfWeek> = emptySet(),
-    onToggle: (DayOfWeek) -> Unit = { /* Implementation */}
-) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        DayOfWeek.entries.forEach { day ->
-            FilterChip(
-                selected = day in selected,
-                onClick = { onToggle(day) },
-                label = {
-                    Text(
-                        text = day.name.take(3).lowercase()
-                            .replaceFirstChar { it.uppercase() }
-                    )
-                }
-            )
-        }
-    }
-}
 @Composable
 fun TimeIntervalSection(
     label: String,
     start: String,
     end: String,
-    onClick: () -> Unit =  { /* Implementation */ }
+    onStartClick: () -> Unit,
+    onEndClick: () -> Unit
 ) {
     Column {
-        Text(label, style = MaterialTheme.typography.labelMedium)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.secondaryContainer)
-                .clickable { onClick() }
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(vertical = 4.dp), // Less vertical padding because children have padding
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(start)
-            Text("–")
-            Text(end)
+            // Start Time Button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onStartClick() }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = start, style = MaterialTheme.typography.bodyLarge)
+            }
+
+            Text(
+                text = "–",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
+            )
+
+            // End Time Button
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onEndClick() }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = end, style = MaterialTheme.typography.bodyLarge)
+            }
         }
     }
 }
+
+@Composable
+fun DurationInputSection(
+    amount: String,
+    onAmountChange: (String) -> Unit,
+    selectedUnit: DurationUnit,
+    onUnitSelection: (DurationUnit) -> Unit
+) {
+    Column {
+        Text(
+            "Minimum Event Duration",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            "How long should the available slot be?",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Number Input
+            OutlinedTextField(
+                value = amount,
+                onValueChange = onAmountChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("0") },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            // Unit Selector
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .padding(4.dp)
+            ) {
+                DurationUnit.entries.forEach { unit ->
+                    val isSelected = unit == selectedUnit
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                            .clickable { onUnitSelection(unit) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = unit.name.lowercase()
+                                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WeekdaySelector(selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        DayOfWeek.entries.forEach { day ->
+            val isSelected = day in selected
+            FilterChip(
+                selected = isSelected,
+                onClick = { onToggle(day) },
+                label = { Text(day.name.take(3)) }
+            )
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NextSlotsDialog(
+    calendars: List<Calendar>,
+    filterQuery: FilterQuery,
+    onSlotClick: (LocalDateTime) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val engine = remember { AvailabilityEngine() }
+    val context = LocalContext.current
+
+    var searchStartDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedLimit by remember { mutableIntStateOf(5) }
+    var expandedLimit by remember { mutableStateOf(false) }
+
+    val slots = remember(searchStartDate, selectedLimit, filterQuery) {
+        engine.findNextSlots(calendars, searchStartDate, filterQuery, selectedLimit)
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .wrapContentHeight()
+                .heightIn(max = 600.dp),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(Modifier.padding(20.dp)) {
+                Text("Find Available Slot", style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(16.dp))
+
+                // Settings
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val picker = DatePickerDialog(context, { _, y, m, d ->
+                                searchStartDate = LocalDate.of(y, m + 1, d)
+                            }, searchStartDate.year, searchStartDate.monthValue - 1, searchStartDate.dayOfMonth)
+                            picker.show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(searchStartDate.format(DateTimeFormatter.ofPattern("MMM d")))
+                    }
+
+                    Box(modifier = Modifier.weight(0.7f)) {
+                        OutlinedButton(
+                            onClick = { expandedLimit = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("$selectedLimit")
+                            Icon(Icons.Default.ArrowDropDown, null)
+                        }
+                        DropdownMenu(
+                            expanded = expandedLimit,
+                            onDismissRequest = { expandedLimit = false }
+                        ) {
+                            listOf(3, 5, 10, 20, 50).forEach { limit ->
+                                DropdownMenuItem(
+                                    text = { Text(limit.toString()) },
+                                    onClick = {
+                                        selectedLimit = limit
+                                        expandedLimit = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(modifier = Modifier.height(0.3.dp))
+                Spacer(Modifier.height(16.dp))
+
+                // Results
+                Box(modifier = Modifier.weight(1f, fill = false)) {
+                    if (slots.isEmpty()) {
+                        Text(
+                            "No slots found.",
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(slots) { slot ->
+                                SlotItem(slot = slot, onClick = { onSlotClick(slot) })
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SlotItem(slot: LocalDateTime, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = slot.format(DateTimeFormatter.ofPattern("EEEE, MMMM d")),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = slot.format(DateTimeFormatter.ofPattern("HH:mm")),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+private fun Int.toTimeString(): String = "%02d:%02d".format(this / 60, this % 60)

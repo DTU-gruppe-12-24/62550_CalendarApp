@@ -188,18 +188,6 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.Top) {
 
         Column(modifier = Modifier.fillMaxHeight()) {
-            // Legend
-            if (activeGroup != -1) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    //verticalArrangement = Arrangement.Bottom
-                ) {
-                    calendars.forEach { calendar ->
-                        CalendarLegend(calendar, Modifier.fillMaxWidth())
-                    }
-                }
-            }
-
             // Calendar
             CalendarComponent(
                 group = groups.getOrNull(activeGroup),

@@ -45,7 +45,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Alignment.Companion.BottomCenter
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -96,12 +95,18 @@ fun HomeView(groups: List<Group>, modifier: Modifier) {
 @Composable
 fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modifier: Modifier) {
     val openCreateGroupDialog = remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     if (openCreateGroupDialog.value) {
         AddGroupDialog( onDismissRequest = { openCreateGroupDialog.value = false } )
     }
 
-    Column(modifier = modifier) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(bottom = 128.dp)
+    ) {
         Spacer(modifier = Modifier.size(16.dp))
         Text(text = "Calendar groups", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
         Spacer(modifier = Modifier.size(32.dp))
@@ -110,7 +115,7 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
         for (i in 0..<groups.size) {
             items.add({
                 Box(modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .clickable(onClick = { onSelectGroup(i) })) {
                     Text(text = groups[i].name, modifier = Modifier.align(Alignment.Center))
                     EditIcon(Modifier
@@ -134,7 +139,7 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
                 Text("Add new group", Modifier.align(Alignment.Center))
             }
         })
-        ItemList(items, Modifier.fillMaxSize())
+        ItemList(items, Modifier.fillMaxWidth())
     }
 }
 
@@ -192,6 +197,7 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
     val openCreateCalendarDialog = remember { mutableStateOf(false) }
     val confirmGroupDelete = remember { mutableStateOf(false) }
     val calendarList = remember(group) { group.calendars.toMutableStateList() }
+    val scrollState = rememberScrollState()
 
     if (editCalendarIndex.intValue >= 0) {
         EditCalendar(
@@ -214,8 +220,10 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 70.dp)
+                .verticalScroll(scrollState)
+                .padding(bottom = 64.dp)
         ) {
+
             Spacer(modifier = Modifier.size(16.dp))
 
             // Edit group name
@@ -370,29 +378,14 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
             }
         Row(
             modifier = Modifier
-                .align(BottomCenter)
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            // Delete button
             DeleteButton(onClick = { confirmGroupDelete.value = true })
-
-            // Exit button
             SuccessButton(onClick = { onExit() })
-
-            if (confirmGroupDelete.value) {
-                ConfirmDialog(
-                    text = "Delete group \"${group.name}\"?\nThis will delete all associated calendars and cannot be undone.",
-                    onSuccess = {
-                        confirmGroupDelete.value = false
-                        deleteGroup()
-                    },
-                    onFail = { confirmGroupDelete.value = false }
-                )
-            }
         }
     }
 }

@@ -61,7 +61,7 @@ fun CalendarFilterBar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Filters", style = MaterialTheme.typography.titleMedium)
+                Text("Find a date", style = MaterialTheme.typography.titleMedium)
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (filterQuery.isActive) {

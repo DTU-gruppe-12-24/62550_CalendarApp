@@ -286,7 +286,7 @@ fun CalendarView(groups: List<Group>, modifier: Modifier) {
 
 
 @Composable
-fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
+fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier, maxLength: Int = 0) {
     Row (modifier = modifier) {
         Card(
             shape = CircleShape,
@@ -300,10 +300,9 @@ fun CalendarLegend(calendar: Calendar, modifier: Modifier = Modifier) {
                 ButtonDefaults.buttonColors().disabledContainerColor,
                 ButtonDefaults.buttonColors().disabledContentColor,
             )
-        ) {
-        }
+        ) {}
         Text(
-            text = calendar.name,
+            text = if (maxLength > 0 && calendar.name.length > maxLength) calendar.name.take(maxLength) + "..." else calendar.name,
             modifier = Modifier.padding(5.dp, 0.dp),
             textAlign = TextAlign.Start
         )

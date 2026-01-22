@@ -107,11 +107,15 @@ fun GroupOverview(groups: List<Group>, onSelectGroup: (group: Int) -> Unit, modi
         Text(text = "Calendar groups", modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.primary, fontSize = TextUnit(8.0f,TextUnitType.Em))
         Spacer(modifier = Modifier.size(32.dp))
 
+        val maxNameLength = 20
         val items = ArrayList<@Composable () -> Unit>()
         for (i in 0..<groups.size) {
             items.add({
                 Box(modifier = Modifier.fillMaxSize().clickable(onClick = { onSelectGroup(i) })) {
-                    Text(text = groups[i].name, modifier = Modifier.align(Alignment.Center))
+                    Text(
+                        text = groups[i].name.take(maxNameLength) + (if (groups[i].name.length > maxNameLength) "..." else ""),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                     EditIcon(Modifier.size(32.dp).align(Alignment.CenterEnd).offset((-8).dp, 0.dp))
                 }
             })
@@ -354,12 +358,24 @@ fun EditGroup(group: Group, modifier: Modifier, onExit: () -> Unit, onEdit: (gro
                     Modifier.fillMaxSize().padding(2.dp).clickable{ editCalendarIndex.intValue = i },
                     Arrangement.SpaceBetween
                 ) {
-                    Box(Modifier.align(Alignment.CenterVertically).clickable { editCalendarIndex.intValue = i }) {
-                        EditIcon(Modifier.align(Alignment.CenterStart).fillMaxHeight(0.66f))
-                    }
-                    CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically))
-                    Box(Modifier.align(Alignment.CenterVertically).clickable { calendarDeleteIndex.intValue = i; confirmCalendarDelete.value = true }) {
-                        DeleteIcon(Modifier.align(Alignment.CenterEnd), LocalCalendarColors.current.calendarred)
+                    CalendarLegend(group.calendars[i], Modifier.align(Alignment.CenterVertically), 25)
+                    Row {
+                        Box(
+                            Modifier.align(Alignment.CenterVertically)
+                                .clickable { editCalendarIndex.intValue = i }
+                        ) {
+                            EditIcon(Modifier.align(Alignment.CenterStart).fillMaxHeight(0.66f))
+                        }
+                        Box(
+                            Modifier.align(Alignment.CenterVertically).clickable {
+                                calendarDeleteIndex.intValue = i; confirmCalendarDelete.value = true
+                            }
+                        ) {
+                            DeleteIcon(
+                                Modifier.align(Alignment.CenterEnd),
+                                LocalCalendarColors.current.calendarred
+                            )
+                        }
                     }
                 }
             })

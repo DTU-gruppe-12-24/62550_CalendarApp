@@ -15,9 +15,7 @@ import java.time.LocalDate
 
 @Serializable
 class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializable {
-    fun isDateTimeWithInEvent(date: LocalDateTime) : Boolean {
-        return (start.isBefore(date) || start == date) && (end.isAfter(date) || end == date)
-    }
+
 
     fun isDateTimeWithInEvent(date: LocalDate) : Boolean {
         val endDate = end.minusMinutes(1).toLocalDate()
@@ -49,7 +47,7 @@ class Event(val start: LocalDateTime, val end: LocalDateTime) : java.io.Serializ
 }
 
 @Serializable
-class Calendar(var name: String, var color: Color, var dates: ArrayList<Event>) : java.io.Serializable {}
+class Calendar(var name: String, var color: Color, var dates: ArrayList<Event>) : java.io.Serializable
 
 fun importZippedIcal(input: InputStream) : ArrayList<Calendar> {
     val calendars = ArrayList<Calendar>()
@@ -172,13 +170,13 @@ fun importIcal(input: InputStream) : Calendar {
                         } else if (count > 0) {
                             startDate + offset.multipliedBy(count.toLong())
                         } else {
-                            Log.w("CalendarImport","Invalid ical: Can't repeat without a COUNT or UNTIL key. At line $lineIndex.")
-                            continue
+                            // No end date, add dates within the next 2 years
+                            startDate.plusYears(2)
                         }
 
                         var date: LocalDateTime = startDate
                         if (values["FREQ"] == "WEEKLY" && values.contains("BYDAY") && !values.contains("INTERVAL")) {
-                            while (date <= until && (count > 0 && repeatedDates.size < count)) {
+                            while (date <= until || (count > 0 && repeatedDates.size < count)) {
                                 // Check if date is filtered out
                                 var valid = true
                                 if (!(values["BYYEAR"]?.contains(date.year.toString()) ?: true)) valid = false

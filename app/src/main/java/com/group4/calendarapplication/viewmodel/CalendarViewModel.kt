@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.*
 import java.time.LocalDate
 
 class CalendarViewModel(
-    private val engine: AvailabilityEngine = AvailabilityEngine()
+    val engine: AvailabilityEngine = AvailabilityEngine()
 ) : ViewModel() {
 
     private val _groups = MutableStateFlow<List<Group>>(emptyList())
@@ -54,19 +54,31 @@ class CalendarViewModel(
     }
 
     fun setGroups(groups: List<Group>) {
+        val isFirstLoad = _groups.value.isEmpty()
         _groups.value = groups
+
+        // Only reset filters on the very first load to prevent
+        // wiping user filters during a background data refresh.
+        if (isFirstLoad) {
+            resetFiltersForCurrentGroup()
+        }
     }
 
     fun updateActiveGroup(index: Int) {
+        if (_activeGroupIndex.value == index) return
         _activeGroupIndex.value = index
-        // When we switch group we should also clear filters to avoid problems with
-        // searching for participants that don't exist.
-        clearFilters()
+        resetFiltersForCurrentGroup()
     }
     fun updateMonth(month: LocalDate) { _selectedMonth.value = month }
 
-    fun clearFilters() {
-        _filterQuery.value = FilterQuery()
+    private fun resetFiltersForCurrentGroup() {
+        val group = _groups.value.getOrNull(_activeGroupIndex.value)
+        val calendars = group?.calendars ?: emptyList()
+
+        _filterQuery.value = FilterQuery(
+            requiredCalendars = calendars.toSet(),
+            totalAvailableParticipants = calendars.size
+        )
     }
 }
 
